@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -120,10 +120,11 @@ export const SignupPage = () => {
         >
           Create premium workspace
         </button>
-        {isSaved && <p className="text-center text-xs text-success">Account ready. Redirecting to login�</p>}
+        {isSaved && <p className="text-center text-xs text-success">Account ready. Redirecting to login…</p>}
       </form>
     </AuthLayout>
   );
 };
+
 
 
