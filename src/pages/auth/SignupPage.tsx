@@ -41,8 +41,8 @@ export const SignupPage = () => {
   const password = watch("password");
   const strength = strengthScore(password || "");
 
-  const onSubmit = (values: SignupForm) => {
-    signup(values.name, values.email, values.role, values.password);
+  const onSubmit = async (values: SignupForm) => {
+    await signup(values.name, values.email, values.role, values.password);
     setIsSaved(true);
     setTimeout(() => {
       reset();
@@ -121,6 +121,12 @@ export const SignupPage = () => {
           Create premium workspace
         </button>
         {isSaved && <p className="text-center text-xs text-success">Account ready. Redirecting to login…</p>}
+        <p className="text-center text-xs text-text-muted">
+          Already have an account?{" "}
+          <Link to="/login" className="font-semibold text-primary underline underline-offset-2">
+            Log in
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

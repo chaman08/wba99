@@ -29,8 +29,8 @@ export const LoginPage = () => {
   const login = useAppStore((state) => state.login);
   const navigate = useNavigate();
 
-  const onSubmit = (payload: LoginForm) => {
-    const success = login(payload.email, payload.password);
+  const onSubmit = async (payload: LoginForm) => {
+    const success = await login(payload.email, payload.password);
     if (!success) {
       setError("Credentials not recognized. Use the password you set during signup.");
       return;

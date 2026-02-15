@@ -12,8 +12,8 @@ export const AdminUsers = () => {
     password: string;
   }>({ defaultValues: { password: "demo" } });
 
-  const onSubmit = (values: { name: string; email: string; role: "physio" | "expert" | "admin"; password: string }) => {
-    signup(values.name, values.email, values.role, values.password);
+  const onSubmit = async (values: { name: string; email: string; role: "physio" | "expert" | "admin"; password: string }) => {
+    await signup(values.name, values.email, values.role, values.password);
     reset();
   };
 
