@@ -1,10 +1,10 @@
 import { Activity, Bone, Footprints, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReactElement, ReactNode, SVGProps } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 
 type ActionType = "login" | "signup";
-type IconComponent = (props: SVGProps<SVGSVGElement>) => ReactElement;
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const heroFeatures: { label: string; Icon: IconComponent }[] = [
   { label: "Posture", Icon: User },
