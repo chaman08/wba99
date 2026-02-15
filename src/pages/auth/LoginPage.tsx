@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
+import type { Role } from "../../types";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 
 const loginSchema = z.object({
@@ -14,9 +15,8 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
-const destinations: Record<string, string> = {
+const destinations: Record<Role, string> = {
   physio: "/dashboard",
-  expert: "/expert/dashboard",
   admin: "/admin/dashboard",
 };
 
@@ -44,7 +44,7 @@ export const LoginPage = () => {
   const floatingLabel = "peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-placeholder-shown:text-text-muted peer-focus:-top-3 peer-focus:text-xs";
 
   return (
-    <AuthLayout title="Login" subtitle="Secure access, zero friction.">
+    <AuthLayout title="Login" subtitle="Secure access, zero friction." action="login">
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="space-y-3">
           <div className="relative">

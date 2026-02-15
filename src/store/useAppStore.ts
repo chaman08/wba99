@@ -2,19 +2,24 @@ import { create } from "zustand";
 import { applyTheme, getStoredTheme, THEME_KEY } from "../lib/theme";
 import type { ThemeMode } from "../lib/theme";
 import type { Case, Patient, Report, Role, User } from "../types";
-import { firebaseDB } from "../lib/firebase";
+import { firebaseAuth, firebaseDB } from "../lib/firebase";
 import {
   collection,
   doc,
+  DocumentSnapshot,
+  getDoc,
   getDocs,
-  query,
   setDoc,
   Timestamp,
   updateDoc,
-  where,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 
 const parseTimestampString = (value?: string | Timestamp, fallback = ""): string => {
   if (value instanceof Timestamp) {
@@ -32,13 +37,25 @@ const ensureMedia = (media?: Partial<Case["media"]>): Case["media"] => ({
   treadmill: Array.isArray(media?.treadmill) ? (media?.treadmill as Case["media"]["treadmill"]) : [],
 });
 
-const mapWithId = <T extends { id: string }>(snapshot: QueryDocumentSnapshot<DocumentData>): T => {
-  const data = snapshot.data() as Partial<T> & { id?: string };
-  return { ...(data as T), id: data.id ?? snapshot.id };
+const normalizeRole = (value?: string): Role => {
+  if (value === "admin" || value === "expert") return "admin";
+  return "physio";
 };
 
-const mapUser = (snapshot: QueryDocumentSnapshot<DocumentData>): User => {
-  return mapWithId<User>(snapshot);
+const mapUserData = (data: Partial<User>, id: string): User => ({
+  id,
+  name: data.name ?? "",
+  email: data.email ?? "",
+  role: normalizeRole(data.role),
+  password: data.password ?? "",
+  avatar: data.avatar,
+});
+
+const mapUser = (snapshot: QueryDocumentSnapshot<DocumentData>): User => mapUserData(snapshot.data() as Partial<User>, snapshot.id);
+
+const mapUserFromDoc = (snapshot: DocumentSnapshot<DocumentData>): User => {
+  const data = snapshot.data() as Partial<User> | undefined;
+  return mapUserData(data ?? {}, snapshot.id);
 };
 
 const mapPatient = (snapshot: QueryDocumentSnapshot<DocumentData>): Patient => {
@@ -138,16 +155,12 @@ export const useAppStore = create<AppState>((set, get) => {
     authUser: null,
     login: async (email, password) => {
       try {
-        const querySnapshot = await getDocs(
-          query(collection(firebaseDB, "users"), where("email", "==", email)),
-        );
-        if (querySnapshot.empty) {
+        const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        const userDoc = await getDoc(doc(firebaseDB, "users", credential.user.uid));
+        if (!userDoc.exists()) {
           return false;
         }
-        const user = mapUser(querySnapshot.docs[0]);
-        if (user.password !== password) {
-          return false;
-        }
+        const user = mapUserFromDoc(userDoc);
         set({ authUser: user });
         return true;
       } catch (error) {
@@ -156,24 +169,27 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
     logout: () => {
+      signOut(firebaseAuth).catch((error) => console.error("Failed to sign out", error));
       set({ authUser: null });
     },
     signup: async (name, email, role, password) => {
-      const nextUser: User = {
-        id: `user-${crypto.randomUUID().slice(0, 5)}`,
-        name,
-        email,
-        role,
-        password,
-      };
-      set((state) => ({ users: [nextUser, ...state.users] }));
       try {
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        const nextUser: User = {
+          id: credential.user.uid,
+          name,
+          email,
+          role,
+          password,
+        };
+        set((state) => ({ users: [nextUser, ...state.users] }));
         await setDoc(doc(firebaseDB, "users", nextUser.id), {
           ...nextUser,
           createdAt: new Date().toISOString(),
         });
       } catch (error) {
         console.error("Failed to save user to Firestore", error);
+        throw error;
       }
     },
     addPatient: (patient) => {

@@ -9,9 +9,6 @@ import { PatientProfile } from "./pages/physio/PatientProfile";
 import { CaseWizard } from "./pages/physio/CaseWizard";
 import { CaseDetail } from "./pages/physio/CaseDetail";
 import { CaseReport } from "./pages/physio/CaseReport";
-import { ExpertDashboard } from "./pages/expert/Dashboard";
-import { ExpertCases } from "./pages/expert/Cases";
-import { ExpertCaseDetail } from "./pages/expert/CaseDetail";
 import { AdminDashboard } from "./pages/admin/Dashboard";
 import { AdminCases } from "./pages/admin/Cases";
 import { AdminUsers } from "./pages/admin/Users";
@@ -32,12 +29,6 @@ export const App = () => {
         <Route path="/cases/new" element={<CaseWizard />} />
         <Route path="/cases/:caseId" element={<CaseDetail />} />
         <Route path="/cases/:caseId/report" element={<CaseReport />} />
-      </Route>
-
-      <Route element={<ProtectedRoute role="expert" />}>
-        <Route path="/expert/dashboard" element={<ExpertDashboard />} />
-        <Route path="/expert/cases" element={<ExpertCases />} />
-        <Route path="/expert/cases/:caseId" element={<ExpertCaseDetail />} />
       </Route>
 
       <Route element={<ProtectedRoute role="admin" />}>

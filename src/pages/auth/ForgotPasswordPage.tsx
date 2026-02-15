@@ -19,7 +19,7 @@ export const ForgotPasswordPage = () => {
   };
 
   return (
-    <AuthLayout title="Forgot password" subtitle="We'll remind you with a secure link.">
+    <AuthLayout title="Forgot password" subtitle="We'll remind you with a secure link." action="login" landingEnabled={false}>
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
           <label className="text-xs text-text-muted">Work email</label>

@@ -1,4 +1,4 @@
-export type Role = "physio" | "expert" | "admin";
+export type Role = "physio" | "admin";
 
 export type CaseStatus =
   | "Draft"

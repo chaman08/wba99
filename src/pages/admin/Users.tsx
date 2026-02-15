@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useAppStore } from "../../store/useAppStore";
+import type { Role } from "../../types";
 
 export const AdminUsers = () => {
   const users = useAppStore((state) => state.users);
@@ -8,11 +9,11 @@ export const AdminUsers = () => {
   const { register, handleSubmit, reset } = useForm<{
     name: string;
     email: string;
-    role: "physio" | "expert" | "admin";
+    role: Role;
     password: string;
   }>({ defaultValues: { password: "demo" } });
 
-  const onSubmit = async (values: { name: string; email: string; role: "physio" | "expert" | "admin"; password: string }) => {
+  const onSubmit = async (values: { name: string; email: string; role: Role; password: string }) => {
     await signup(values.name, values.email, values.role, values.password);
     reset();
   };
@@ -30,7 +31,6 @@ export const AdminUsers = () => {
         <input {...register("password", { required: true })} type="password" placeholder="Password" className="rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none" />
         <select {...register("role")} className="rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none">
           <option value="physio">Physio</option>
-          <option value="expert">Expert</option>
           <option value="admin">Admin</option>
         </select>
         <button type="submit" className="rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-semibold text-white transition hover:scale-105">
@@ -45,9 +45,8 @@ export const AdminUsers = () => {
               <p className="font-semibold text-text">{user.name}</p>
               <p className="text-xs text-text-muted">{user.email}</p>
             </div>
-            <select value={user.role} onChange={(event) => updateUserRole(user.id, event.target.value as "physio" | "expert" | "admin")} className="rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-xs text-text outline-none">
+            <select value={user.role} onChange={(event) => updateUserRole(user.id, event.target.value as Role)} className="rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-xs text-text outline-none">
               <option value="physio">Physio</option>
-              <option value="expert">Expert</option>
               <option value="admin">Admin</option>
             </select>
           </div>

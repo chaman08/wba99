@@ -3,14 +3,14 @@ import { useAppStore } from "../../store/useAppStore";
 
 export const AdminDashboard = () => {
   const cases = useAppStore((state) => state.cases);
-  const experts = useAppStore((state) => state.users.filter((user) => user.role === "expert"));
+  const admins = useAppStore((state) => state.users.filter((user) => user.role === "admin"));
 
   const stats = useMemo(() => {
     const total = cases.length;
     const pending = cases.filter((item) => item.status === "Submitted").length;
     const completed = cases.filter((item) => item.status === "Report Ready" || item.status === "Completed").length;
-    return { total, pending, completed, experts: experts.length };
-  }, [cases, experts.length]);
+    return { total, pending, completed, admins: admins.length };
+  }, [cases, admins.length]);
 
   return (
     <section className="space-y-6 rounded-3xl bg-surface/70 p-6 shadow-soft-light animate-fade-in">
@@ -21,7 +21,7 @@ export const AdminDashboard = () => {
         <StatCard label="Total cases" value={stats.total} />
         <StatCard label="Pending assignment" value={stats.pending} />
         <StatCard label="Completed" value={stats.completed} />
-        <StatCard label="Active experts" value={stats.experts} />
+        <StatCard label="Active admins" value={stats.admins} />
       </div>
     </section>
   );

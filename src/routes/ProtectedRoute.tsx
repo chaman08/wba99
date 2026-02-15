@@ -8,11 +8,7 @@ interface ProtectedRouteProps {
   label?: string;
 }
 
-const roleHome = (role: Role) => {
-  if (role === "expert") return "/expert/dashboard";
-  if (role === "admin") return "/admin/dashboard";
-  return "/dashboard";
-};
+const roleHome = (role: Role) => (role === "admin" ? "/admin/dashboard" : "/dashboard");
 
 export const ProtectedRoute = ({ role, label }: ProtectedRouteProps) => {
   const user = useAppStore((state) => state.authUser);

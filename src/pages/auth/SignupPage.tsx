@@ -12,7 +12,7 @@ const signupSchema = z
     email: z.string().email("Valid email required"),
     password: z.string().min(8, "At least 8 characters"),
     confirm: z.string(),
-    role: z.enum(["physio", "expert", "admin"]),
+    role: z.enum(["physio", "admin"]),
   })
   .refine((data) => data.password === data.confirm, {
     message: "Passwords must match",
@@ -38,11 +38,19 @@ export const SignupPage = () => {
   const signup = useAppStore((state) => state.signup);
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState("");
   const password = watch("password");
   const strength = strengthScore(password || "");
 
   const onSubmit = async (values: SignupForm) => {
-    await signup(values.name, values.email, values.role, values.password);
+    setError("");
+    try {
+      await signup(values.name, values.email, values.role, values.password);
+    } catch (err) {
+      console.error(err);
+      setError("Could not complete signup. Try again in a moment.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => {
       reset();
@@ -57,7 +65,7 @@ export const SignupPage = () => {
   }, [strength]);
 
   return (
-    <AuthLayout title="Create account" subtitle="Invite experts and orchestrate assessments.">
+    <AuthLayout title="Create account" subtitle="Invite admins and orchestrate assessments." action="signup">
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
           <label className="text-xs text-text-muted">Full name</label>
@@ -84,7 +92,6 @@ export const SignupPage = () => {
             className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none transition focus:border-primary"
           >
             <option value="physio">Physiotherapist</option>
-            <option value="expert">Expert Reviewer</option>
             <option value="admin">Admin</option>
           </select>
         </div>
@@ -127,6 +134,7 @@ export const SignupPage = () => {
             Log in
           </Link>
         </p>
+        {error && <p className="text-center text-xs text-error">{error}</p>}
       </form>
     </AuthLayout>
   );

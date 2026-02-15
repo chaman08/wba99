@@ -6,6 +6,9 @@ export const CaseDetail = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const item = useAppStore((state) => state.cases.find((c) => c.id === caseId));
   const patient = useAppStore((state) => state.patients.find((p) => p.id === item?.patientId));
+  const assignedAdmin = useAppStore((state) =>
+    item?.expertId ? state.users.find((user) => user.id === item.expertId) : undefined,
+  );
   const navigate = useNavigate();
 
   const galleries = useMemo(() => {
@@ -45,8 +48,8 @@ export const CaseDetail = () => {
           <p className="mt-2 text-sm text-text">{new Date(item.createdAt).toLocaleDateString()}</p>
         </article>
         <article className="rounded-3xl border border-white/5 bg-background/50 p-4">
-          <p className="text-xs uppercase tracking-[0.4em] text-text-muted">Assigned expert</p>
-          <p className="mt-2 text-sm text-text">{item.expertId || "TBD"}</p>
+          <p className="text-xs uppercase tracking-[0.4em] text-text-muted">Assigned admin</p>
+          <p className="mt-2 text-sm text-text">{assignedAdmin?.name || item.expertId || "TBD"}</p>
         </article>
       </div>
 

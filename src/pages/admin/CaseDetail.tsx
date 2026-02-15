@@ -11,7 +11,7 @@ export const AdminCaseDetail = () => {
   const navigate = useNavigate();
 
   const patient = selected ? patients.find((item) => item.id === selected.patientId) : null;
-  const experts = users.filter((user) => user.role === "expert");
+  const admins = users.filter((user) => user.role === "admin");
   const timeline = ["Submitted", "Assigned", "In Review", "Report Ready"];
   const currentIndex = selected ? Math.max(0, timeline.indexOf(selected.status)) : 0;
 
@@ -68,7 +68,7 @@ export const AdminCaseDetail = () => {
             ))}
           </div>
           <div className="space-y-2 pt-3">
-            <label className="text-[11px] text-text-muted">Expert</label>
+            <label className="text-[11px] text-text-muted">Admin</label>
             <select
               value={selected.expertId ?? ""}
               onChange={(event) =>
@@ -78,10 +78,10 @@ export const AdminCaseDetail = () => {
               }
               className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none"
             >
-              <option value="">Assign expert</option>
-              {experts.map((expert) => (
-                <option key={expert.id} value={expert.id}>
-                  {expert.name}
+              <option value="">Assign admin</option>
+              {admins.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.name}
                 </option>
               ))}
             </select>

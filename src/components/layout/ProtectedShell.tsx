@@ -2,17 +2,14 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "../buttons/ThemeToggle";
 import { useAppStore } from "../../store/useAppStore";
+import type { Role } from "../../types";
 
-const navConfig: Record<string, { label: string; to: string }[]> = {
+const navConfig: Record<Role, { label: string; to: string }[]> = {
   physio: [
     { label: "Overview", to: "/dashboard" },
     { label: "Patients", to: "/patients" },
     { label: "New case", to: "/cases/new" },
     { label: "Case inbox", to: "/cases" },
-  ],
-  expert: [
-    { label: "Overview", to: "/expert/dashboard" },
-    { label: "Cases", to: "/expert/cases" },
   ],
   admin: [
     { label: "Overview", to: "/admin/dashboard" },
@@ -22,16 +19,12 @@ const navConfig: Record<string, { label: string; to: string }[]> = {
 };
 
 interface ProtectedShellProps {
-  role: "physio" | "expert" | "admin";
+  role: Role;
   label?: string;
   children: ReactNode;
 }
 
-const getRoleLabel = (role: string) => {
-  if (role === "physio") return "Physiotherapist";
-  if (role === "expert") return "Expert reviewer";
-  return "Admin";
-};
+const getRoleLabel = (role: Role) => (role === "physio" ? "Physiotherapist" : "Admin");
 
 export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) => {
   const user = useAppStore((state) => state.authUser);
@@ -47,13 +40,15 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
           </div>
           <nav className="flex flex-col gap-2 text-sm">
             {navConfig[role].map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }: { isActive: boolean }) =>
-                `rounded-2xl px-4 py-3 transition duration-200 ${isActive ? "bg-primary/20 text-primary" : "text-text-muted hover:bg-white/5"}`
-              }
-            >
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }: { isActive: boolean }) =>
+                  `rounded-2xl px-4 py-3 transition duration-200 ${
+                    isActive ? "bg-primary/20 text-primary" : "text-text-muted hover:bg-white/5"
+                  }`
+                }
+              >
                 {item.label}
               </NavLink>
             ))}
