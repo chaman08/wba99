@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 
@@ -120,8 +120,10 @@ export const SignupPage = () => {
         >
           Create premium workspace
         </button>
-        {isSaved && <p className="text-center text-xs text-success">Account ready. Redirecting to loginâ€¦</p>}
+        {isSaved && <p className="text-center text-xs text-success">Account ready. Redirecting to login…</p>}
       </form>
     </AuthLayout>
   );
 };
+
+
