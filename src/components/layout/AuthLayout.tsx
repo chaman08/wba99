@@ -72,14 +72,14 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-text">
         <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-6 p-6">
           <div className="space-y-4 text-center">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">WBA99</p>
+            <p className="text-xl font-bold uppercase tracking-[0.5em] text-slate-400">WBA99</p>
             <h1 className="text-3xl font-semibold text-white">{heroText.title}</h1>
             <p className="text-sm text-slate-300">{heroText.description}</p>
           </div>
           <div className="relative w-full max-w-[330px] rounded-[40px] border border-white/10 bg-gradient-to-b from-slate-950/90 to-slate-900/80 p-4 shadow-[0_40px_80px_rgba(15,23,42,0.85)]">
             <div className="flex flex-col gap-4 text-center">
               <div>
-                <p className="text-xs uppercase tracking-[0.5em] text-white/60">WBA99</p>
+                <p className="text-lg font-bold uppercase tracking-[0.6em] text-white/60">WBA99</p>
                 <p className="text-2xl font-semibold text-white">{heroText.title}</p>
               </div>
               <div className="flex items-center justify-center gap-3">
@@ -125,7 +125,7 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-between gap-1 rounded-3xl bg-gradient-to-br from-slate-900/80 via-slate-950 to-slate-950 p-1 shadow-soft-light">
         <div className="hidden flex-1 flex-col items-center justify-center gap-4 rounded-3xl bg-slate-900/60 p-10 text-left text-white lg:flex">
           <div className="space-y-2 text-left">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">WBA99</p>
+            <p className="text-xl font-bold uppercase tracking-[0.5em] text-slate-400">WBA99</p>
             <p className="text-2xl font-semibold tracking-tight text-white">{heroText.title}</p>
             <p className="max-w-xs text-sm text-slate-300">{heroText.description}</p>
           </div>
@@ -134,7 +134,7 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
             <div className="relative z-10 overflow-hidden rounded-[40px] border border-white/10 bg-gradient-to-b from-slate-950/90 to-slate-900/80 p-4 shadow-[0_40px_80px_rgba(15,23,42,0.85)]">
               <div className="flex flex-col gap-5 text-center">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.5em] text-white/60">WBA99</p>
+                  <p className="text-lg font-bold uppercase tracking-[0.6em] text-white/60">WBA99</p>
                   <p className="text-2xl font-semibold text-white">{heroText.title}</p>
                 </div>
                 <div className="flex items-center justify-center gap-3">

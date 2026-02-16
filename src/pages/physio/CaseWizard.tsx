@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CheckCircle, UploadCloud, Activity, Footprints, FileText } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { MSKAssessmentForm } from "../../components/forms/MSKAssessmentForm";
 
 const wizardSchema = z.object({
     patientId: z.string().min(1, "Select a patient"),
@@ -14,6 +15,7 @@ const wizardSchema = z.object({
     groundNotes: z.string().optional(),
     treadmillNotes: z.string().optional(),
     mskSummary: z.string().optional(),
+    mskData: z.any().optional(),
 });
 
 type WizardForm = z.infer<typeof wizardSchema>;
@@ -40,7 +42,7 @@ type TestType = "posture" | "gait" | "msk";
 export const CaseWizard = () => {
     const { register, handleSubmit, reset, watch, trigger } = useForm<WizardForm>({
         resolver: zodResolver(wizardSchema),
-        defaultValues: { patientId: "", postureNotes: "", groundNotes: "", treadmillNotes: "", mskSummary: "" },
+        defaultValues: { patientId: "", postureNotes: "", groundNotes: "", treadmillNotes: "", mskSummary: "", mskData: {} },
     });
     const [activeStep, setActiveStep] = useState(0);
     const [stepError, setStepError] = useState("");
@@ -138,10 +140,7 @@ export const CaseWizard = () => {
                     return;
                 }
             } else if (selectedTest === "msk") {
-                if (!watchValues.mskSummary || watchValues.mskSummary.length < 5) {
-                    setStepError("Please provide a summary.");
-                    return;
-                }
+                // MSK is optional or heavily multi-field, so we don't strictly require fields in code for now
             }
         }
 
@@ -156,6 +155,7 @@ export const CaseWizard = () => {
             title: `${patients.find((patient) => patient.id === values.patientId)?.name} · ${selectedTest ? selectedTest.toUpperCase() : 'Assessment'}`,
             patientId: values.patientId,
             mskSummary: values.mskSummary || "",
+            mskData: values.mskData,
             media: {
                 posture: postureGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
                 ground: groundGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
@@ -185,9 +185,12 @@ export const CaseWizard = () => {
                             ))}
                         </select>
                         <div className="flex flex-col gap-2">
-                            <button type="button" className="text-left text-xs text-primary underline-offset-4 hover:underline">
+                            <Link
+                                to="/patients"
+                                className="text-left text-xs text-primary underline-offset-4 hover:underline"
+                            >
                                 Create new patient
-                            </button>
+                            </Link>
                             <Link className="text-left text-xs text-primary underline-offset-4 hover:underline" to="/patients">
                                 Manage patients
                             </Link>
@@ -295,13 +298,18 @@ export const CaseWizard = () => {
                 }
                 if (selectedTest === "msk") {
                     return (
-                        <div className="space-y-4">
-                            <textarea
-                                {...register("mskSummary")}
-                                rows={6}
-                                placeholder="Document MSK screening findings and highlight risk"
-                                className="w-full rounded-3xl border border-white/10 bg-transparent px-4 py-3 text-sm text-text outline-none transition focus:border-primary"
-                            />
+                        <div className="space-y-6">
+                            <MSKAssessmentForm register={register} />
+                            <div className="h-px bg-white/5" />
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">Summary & Recommendations</p>
+                                <textarea
+                                    {...register("mskSummary")}
+                                    rows={4}
+                                    placeholder="Final summary of findings..."
+                                    className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-text outline-none transition focus:border-primary"
+                                />
+                            </div>
                         </div>
                     );
                 }
@@ -320,7 +328,7 @@ export const CaseWizard = () => {
                                     <Panel title="Treadmill notes">{watchValues.treadmillNotes}</Panel>
                                 </>
                             )}
-                            {selectedTest === "msk" && <Panel title="MSK summary">{watchValues.mskSummary}</Panel>}
+                            {selectedTest === "msk" && <Panel title="MSK data logged">Detailed clinical observations recorded.</Panel>}
                         </div>
                         <p className="text-xs text-text-muted">
                             {selectedTest === 'gait' ? `Gait: ${groundGroup.files.length} ground, ${treadmillGroup.files.length} treadmill` : ''}

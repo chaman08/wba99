@@ -83,6 +83,7 @@ const mapCase = (snapshot: QueryDocumentSnapshot<DocumentData>): Case => {
     createdAt: parseTimestampString(data.createdAt as string | Timestamp, new Date().toISOString()),
     updatedAt: parseTimestampString(data.updatedAt as string | Timestamp, new Date().toISOString()),
     mskSummary: data.mskSummary ?? "",
+    mskData: data.mskData,
     media: ensureMedia(data.media),
   };
 };
@@ -263,6 +264,7 @@ export const useAppStore = create<AppState>((set, get) => {
         createdAt: now,
         updatedAt: now,
         mskSummary: payload.mskSummary ?? "",
+        mskData: payload.mskData,
         media: payload.media ?? {
           posture: [],
           ground: [],
