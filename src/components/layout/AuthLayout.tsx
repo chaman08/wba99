@@ -171,11 +171,22 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
           </p>
         </div>
 
-        <div className="flex w-full flex-1 flex-col items-center justify-center rounded-3xl bg-slate-950/70 p-10 shadow-soft-light lg:max-w-2xl">
+        <div className="flex w-full flex-1 flex-col items-center justify-center rounded-3xl bg-slate-950/70 p-6 sm:p-10 shadow-soft-light lg:max-w-2xl">
           <div className="w-full max-w-md">
-            <h2 className="text-3xl font-semibold text-text">{title}</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-text">{title}</h2>
             {subtitle && <p className="mt-2 text-sm text-text-muted">{subtitle}</p>}
-            <div className="mt-8 space-y-6 rounded-3xl bg-slate-900/60 p-8 shadow-glass-dark">{children}</div>
+            <div className="mt-6 sm:mt-8 space-y-6 rounded-3xl bg-slate-900/60 p-6 sm:p-8 shadow-glass-dark relative">
+              {!isDesktop && (
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="absolute -top-10 left-0 flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-400 hover:text-white transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                  Back to info
+                </button>
+              )}
+              {children}
+            </div>
           </div>
         </div>
       </div>

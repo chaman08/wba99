@@ -11,9 +11,18 @@ interface ProtectedRouteProps {
 const roleHome = (role: Role) => (role === "admin" ? "/admin/dashboard" : "/dashboard");
 
 export const ProtectedRoute = ({ role, label }: ProtectedRouteProps) => {
-  const user = useAppStore((state) => state.authUser);
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== role) return <Navigate to={roleHome(user.role)} replace />;
+  const { authUser, isLoadingAuth } = useAppStore();
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-primary">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authUser) return <Navigate to="/login" replace />;
+  if (authUser.role !== role) return <Navigate to={roleHome(authUser.role)} replace />;
   return (
     <ProtectedShell role={role} label={label}>
       <Outlet />

@@ -39,14 +39,14 @@ export const PhysioDashboard = () => {
 
   return (
     <section className="space-y-6 rounded-3xl bg-surface/70 p-6 shadow-soft-light animate-fade-in">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {statConfig.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-3xl border border-white/5 bg-gradient-to-br from-white/5 to-white/0 p-5 transition hover:-translate-y-1 hover:shadow-soft-light"
+            className="rounded-3xl border border-white/5 bg-gradient-to-br from-white/5 to-white/0 p-5 transition hover:shadow-soft-light sm:hover:-translate-y-1"
           >
-            <p className="text-sm uppercase tracking-[0.4em] text-text-muted">{stat.label}</p>
-            <p className="mt-4 text-3xl font-semibold">{stats[stat.key as keyof typeof stats]}</p>
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.4em] text-text-muted">{stat.label}</p>
+            <p className="mt-3 sm:mt-4 text-2xl sm:text-3xl font-semibold">{stats[stat.key as keyof typeof stats]}</p>
           </div>
         ))}
       </div>
@@ -58,7 +58,7 @@ export const PhysioDashboard = () => {
             View all
           </button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           {filteredCases.map((item) => (
             <article
               key={item.id}

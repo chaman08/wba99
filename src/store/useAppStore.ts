@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
@@ -104,6 +105,7 @@ export interface AppState {
   cases: Case[];
   reports: Report[];
   authUser: User | null;
+  isLoadingAuth: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   signup: (name: string, email: string, role: Role, password: string) => Promise<void>;
@@ -116,6 +118,9 @@ export interface AppState {
 
 const initialTheme = getStoredTheme();
 applyTheme(initialTheme);
+
+const LAST_ACTIVE_KEY = "wba99_last_active";
+const MAX_INACTIVE_DAYS = 14;
 
 export const useAppStore = create<AppState>((set, get) => {
   const refreshFirestoreState = async () => {
@@ -137,11 +142,50 @@ export const useAppStore = create<AppState>((set, get) => {
     }
   };
 
-  refreshFirestoreState();
+  const checkInactivity = () => {
+    const lastActive = localStorage.getItem(LAST_ACTIVE_KEY);
+    if (lastActive) {
+      const lastActiveDate = new Date(lastActive);
+      const diffDays = (new Date().getTime() - lastActiveDate.getTime()) / (1000 * 3600 * 24);
+      if (diffDays > MAX_INACTIVE_DAYS) {
+        signOut(firebaseAuth).catch(console.error);
+        localStorage.removeItem(LAST_ACTIVE_KEY);
+        set({ authUser: null });
+        return true;
+      }
+    }
+    localStorage.setItem(LAST_ACTIVE_KEY, new Date().toISOString());
+    return false;
+  };
+
+  onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+    if (firebaseUser) {
+      const isInactive = checkInactivity();
+      if (isInactive) {
+        set({ isLoadingAuth: false });
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(firebaseDB, "users", firebaseUser.uid));
+        if (userDoc.exists()) {
+          set({ authUser: mapUserFromDoc(userDoc), isLoadingAuth: false });
+          refreshFirestoreState();
+        } else {
+          set({ authUser: null, isLoadingAuth: false });
+        }
+      } catch (error) {
+        console.error("Failed to rehydrate auth", error);
+        set({ authUser: null, isLoadingAuth: false });
+      }
+    } else {
+      set({ authUser: null, isLoadingAuth: false });
+    }
+  });
 
   return {
     theme: initialTheme,
-    setTheme: (mode) => {
+    setTheme: (mode: ThemeMode) => {
       applyTheme(mode);
       if (typeof localStorage !== "undefined") {
         localStorage.setItem(THEME_KEY, mode);
@@ -153,6 +197,7 @@ export const useAppStore = create<AppState>((set, get) => {
     cases: [],
     reports: [],
     authUser: null,
+    isLoadingAuth: true,
     login: async (email, password) => {
       try {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
@@ -161,7 +206,9 @@ export const useAppStore = create<AppState>((set, get) => {
           return false;
         }
         const user = mapUserFromDoc(userDoc);
+        localStorage.setItem(LAST_ACTIVE_KEY, new Date().toISOString());
         set({ authUser: user });
+        refreshFirestoreState();
         return true;
       } catch (error) {
         console.error("Login failed", error);
@@ -170,6 +217,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     logout: () => {
       signOut(firebaseAuth).catch((error) => console.error("Failed to sign out", error));
+      localStorage.removeItem(LAST_ACTIVE_KEY);
       set({ authUser: null });
     },
     signup: async (name, email, role, password) => {
@@ -192,7 +240,7 @@ export const useAppStore = create<AppState>((set, get) => {
         throw error;
       }
     },
-    addPatient: (patient) => {
+    addPatient: (patient: Omit<Patient, "id" | "lastSession">) => {
       const newPatient: Patient = {
         id: `patient-${crypto.randomUUID().slice(0, 5)}`,
         lastSession: new Date().toISOString().split("T")[0],
@@ -203,7 +251,7 @@ export const useAppStore = create<AppState>((set, get) => {
         console.error("Failed to persist patient", error),
       );
     },
-    addCase: (payload) => {
+    addCase: (payload: Partial<Case> & { title: string; patientId: string }) => {
       const now = new Date().toISOString();
       const newCase: Case = {
         id: `case-${crypto.randomUUID().slice(0, 5)}`,
@@ -226,7 +274,7 @@ export const useAppStore = create<AppState>((set, get) => {
         console.error("Failed to persist case", error),
       );
     },
-    updateCase: (caseId, patch) => {
+    updateCase: (caseId: string, patch: Partial<Case>) => {
       const updatedAt = new Date().toISOString();
       set((state) => ({
         cases: state.cases.map((item) =>
@@ -237,7 +285,7 @@ export const useAppStore = create<AppState>((set, get) => {
         console.error("Failed to update case", error),
       );
     },
-    addReport: (report) => {
+    addReport: (report: Report) => {
       const persistedReport: Report = { ...report, updatedAt: new Date().toISOString() };
       set((state) => {
         const nextReports = state.reports.filter((item) => item.caseId !== report.caseId);
@@ -247,7 +295,7 @@ export const useAppStore = create<AppState>((set, get) => {
         console.error("Failed to save report", error),
       );
     },
-    updateUserRole: (userId, role) => {
+    updateUserRole: (userId: string, role: Role) => {
       set((state) => ({
         users: state.users.map((user) => (user.id === userId ? { ...user, role } : user)),
       }));
