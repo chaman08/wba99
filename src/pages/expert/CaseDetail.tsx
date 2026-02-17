@@ -39,11 +39,23 @@ export const ExpertCaseDetail = () => {
   ];
 
   const onSave = (values: Record<string, string>) => {
-    addReport({ caseId: selected.id, sections: values, status: "Draft", updatedAt: new Date().toISOString() });
+    addReport({
+      caseId: selected.id,
+      physiotherapistId: selected.physiotherapistId,
+      sections: values,
+      status: "Draft",
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   const onReady = (values: Record<string, string>) => {
-    addReport({ caseId: selected.id, sections: values, status: "Report Ready", updatedAt: new Date().toISOString() });
+    addReport({
+      caseId: selected.id,
+      physiotherapistId: selected.physiotherapistId,
+      sections: values,
+      status: "Report Ready",
+      updatedAt: new Date().toISOString(),
+    });
     updateCase(selected.id, { status: "Report Ready" });
   };
 
@@ -61,9 +73,8 @@ export const ExpertCaseDetail = () => {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`rounded-full px-4 py-1 text-xs font-semibold ${
-                  activeTab === tab.key ? "bg-primary/20 text-primary" : "bg-white/5 text-text-muted"
-                }`}
+                className={`rounded-full px-4 py-1 text-xs font-semibold ${activeTab === tab.key ? "bg-primary/20 text-primary" : "bg-white/5 text-text-muted"
+                  }`}
               >
                 {tab.label}
               </button>
@@ -84,9 +95,8 @@ export const ExpertCaseDetail = () => {
               {timeline.map((step) => (
                 <span
                   key={step}
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                    timeline.indexOf(step) <= statusIndex ? "bg-primary/20 text-primary" : "bg-white/5 text-text-muted"
-                  }`}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold ${timeline.indexOf(step) <= statusIndex ? "bg-primary/20 text-primary" : "bg-white/5 text-text-muted"
+                    }`}
                 >
                   {step}
                 </span>
