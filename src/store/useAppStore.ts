@@ -8,12 +8,15 @@ import {
   doc,
   DocumentSnapshot,
   getDoc,
-  getDocs,
+  onSnapshot,
+  query,
   setDoc,
   Timestamp,
   updateDoc,
+  where,
   type DocumentData,
   type QueryDocumentSnapshot,
+  type Unsubscribe,
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
@@ -78,7 +81,7 @@ const mapCase = (snapshot: QueryDocumentSnapshot<DocumentData>): Case => {
     title: data.title ?? "",
     status: (data.status as Case["status"]) ?? "Draft",
     physiotherapistId: data.physiotherapistId ?? "",
-    expertId: data.expertId,
+    expertId: data.expertId ?? null,
     patientId: data.patientId ?? "",
     createdAt: parseTimestampString(data.createdAt as string | Timestamp, new Date().toISOString()),
     updatedAt: parseTimestampString(data.updatedAt as string | Timestamp, new Date().toISOString()),
@@ -92,6 +95,7 @@ const mapReport = (snapshot: QueryDocumentSnapshot<DocumentData>): Report => {
   const data = snapshot.data() as Partial<Report>;
   return {
     caseId: data.caseId ?? "",
+    physiotherapistId: data.physiotherapistId ?? "",
     sections: (data.sections as Record<string, string>) ?? {},
     status: data.status ?? "Draft",
     updatedAt: parseTimestampString(data.updatedAt as string | Timestamp, new Date().toISOString()),
@@ -110,11 +114,11 @@ export interface AppState {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   signup: (name: string, email: string, role: Role, password: string) => Promise<void>;
-  addPatient: (patient: Omit<Patient, "id" | "lastSession">) => void;
-  addCase: (payload: Partial<Case> & { title: string; patientId: string }) => void;
-  updateCase: (caseId: string, patch: Partial<Case>) => void;
-  addReport: (report: Report) => void;
-  updateUserRole: (userId: string, role: Role) => void;
+  addPatient: (patient: Omit<Patient, "id" | "lastSession" | "physiotherapistId">) => Promise<void>;
+  addCase: (payload: Partial<Case> & { title: string; patientId: string }) => Promise<void>;
+  updateCase: (caseId: string, patch: Partial<Case>) => Promise<void>;
+  addReport: (report: Report) => Promise<void>;
+  updateUserRole: (userId: string, role: Role) => Promise<void>;
 }
 
 const initialTheme = getStoredTheme();
@@ -123,24 +127,54 @@ applyTheme(initialTheme);
 const LAST_ACTIVE_KEY = "wba99_last_active";
 const MAX_INACTIVE_DAYS = 14;
 
+let unsubscribers: Unsubscribe[] = [];
+
 export const useAppStore = create<AppState>((set, get) => {
-  const refreshFirestoreState = async () => {
-    try {
-      const [usersSnapshot, patientsSnapshot, casesSnapshot, reportsSnapshot] = await Promise.all([
-        getDocs(collection(firebaseDB, "users")),
-        getDocs(collection(firebaseDB, "patients")),
-        getDocs(collection(firebaseDB, "cases")),
-        getDocs(collection(firebaseDB, "reports")),
-      ]);
-      set({
-        users: usersSnapshot.docs.map(mapUser),
-        patients: patientsSnapshot.docs.map(mapPatient),
-        cases: casesSnapshot.docs.map(mapCase),
-        reports: reportsSnapshot.docs.map(mapReport),
+  const cleanupListeners = () => {
+    unsubscribers.forEach((unsub) => unsub());
+    unsubscribers = [];
+  };
+
+  const setupListeners = (user: User) => {
+    cleanupListeners();
+
+    // Users listener (only for admin)
+    if (user.role === "admin") {
+      const usersUnsub = onSnapshot(collection(firebaseDB, "users"), (snapshot) => {
+        set({ users: snapshot.docs.map(mapUser) });
       });
-    } catch (error) {
-      console.error("Failed to load Firestore data", error);
+      unsubscribers.push(usersUnsub);
     }
+
+    // Patients listener - filter by physiotherapistId if not admin
+    const patientsQuery = user.role === "admin"
+      ? collection(firebaseDB, "patients")
+      : query(collection(firebaseDB, "patients"), where("physiotherapistId", "==", user.id));
+
+    const patientsUnsub = onSnapshot(patientsQuery, (snapshot) => {
+      set({ patients: snapshot.docs.map(mapPatient) });
+    });
+    unsubscribers.push(patientsUnsub);
+
+    // Cases listener
+    const casesQuery = user.role === "admin"
+      ? collection(firebaseDB, "cases")
+      : query(collection(firebaseDB, "cases"), where("physiotherapistId", "==", user.id));
+
+    const casesUnsub = onSnapshot(casesQuery, (snapshot) => {
+      set({ cases: snapshot.docs.map(mapCase) });
+    });
+    unsubscribers.push(casesUnsub);
+
+    // Reports listener - filter by physiotherapistId if not admin
+    const reportsQuery = user.role === "admin"
+      ? collection(firebaseDB, "reports")
+      : query(collection(firebaseDB, "reports"), where("physiotherapistId", "==", user.id));
+
+    const reportsUnsub = onSnapshot(reportsQuery, (snapshot) => {
+      set({ reports: snapshot.docs.map(mapReport) });
+    });
+    unsubscribers.push(reportsUnsub);
   };
 
   const checkInactivity = () => {
@@ -152,6 +186,7 @@ export const useAppStore = create<AppState>((set, get) => {
         signOut(firebaseAuth).catch(console.error);
         localStorage.removeItem(LAST_ACTIVE_KEY);
         set({ authUser: null });
+        cleanupListeners();
         return true;
       }
     }
@@ -170,8 +205,9 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         const userDoc = await getDoc(doc(firebaseDB, "users", firebaseUser.uid));
         if (userDoc.exists()) {
-          set({ authUser: mapUserFromDoc(userDoc), isLoadingAuth: false });
-          refreshFirestoreState();
+          const user = mapUserFromDoc(userDoc);
+          set({ authUser: user, isLoadingAuth: false });
+          setupListeners(user);
         } else {
           set({ authUser: null, isLoadingAuth: false });
         }
@@ -181,6 +217,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     } else {
       set({ authUser: null, isLoadingAuth: false });
+      cleanupListeners();
     }
   });
 
@@ -199,7 +236,7 @@ export const useAppStore = create<AppState>((set, get) => {
     reports: [],
     authUser: null,
     isLoadingAuth: true,
-    login: async (email, password) => {
+    login: async (email: string, password: string) => {
       try {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
         const userDoc = await getDoc(doc(firebaseDB, "users", credential.user.uid));
@@ -209,7 +246,7 @@ export const useAppStore = create<AppState>((set, get) => {
         const user = mapUserFromDoc(userDoc);
         localStorage.setItem(LAST_ACTIVE_KEY, new Date().toISOString());
         set({ authUser: user });
-        refreshFirestoreState();
+        setupListeners(user);
         return true;
       } catch (error) {
         console.error("Login failed", error);
@@ -219,9 +256,10 @@ export const useAppStore = create<AppState>((set, get) => {
     logout: () => {
       signOut(firebaseAuth).catch((error) => console.error("Failed to sign out", error));
       localStorage.removeItem(LAST_ACTIVE_KEY);
-      set({ authUser: null });
+      cleanupListeners();
+      set({ authUser: null, patients: [], cases: [], reports: [] });
     },
-    signup: async (name, email, role, password) => {
+    signup: async (name: string, email: string, role: Role, password: string) => {
       try {
         const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         const nextUser: User = {
@@ -231,36 +269,47 @@ export const useAppStore = create<AppState>((set, get) => {
           role,
           password,
         };
-        set((state) => ({ users: [nextUser, ...state.users] }));
         await setDoc(doc(firebaseDB, "users", nextUser.id), {
           ...nextUser,
           createdAt: new Date().toISOString(),
         });
+        // onAuthStateChanged will handle setting the authUser and listeners
       } catch (error) {
         console.error("Failed to save user to Firestore", error);
         throw error;
       }
     },
-    addPatient: (patient: Omit<Patient, "id" | "lastSession">) => {
+    addPatient: async (patient: Omit<Patient, "id" | "lastSession" | "physiotherapistId">) => {
+      const authUser = get().authUser;
+      if (!authUser) throw new Error("Authenticated user required");
+
       const newPatient: Patient = {
-        id: `patient-${crypto.randomUUID().slice(0, 5)}`,
-        lastSession: new Date().toISOString().split("T")[0],
+        id: `patient-${crypto.randomUUID().slice(0, 8)}`,
+        lastSession: new Date().toISOString(),
         ...patient,
+        physiotherapistId: authUser.id,
       };
-      set((state) => ({ patients: [newPatient, ...state.patients] }));
-      setDoc(doc(firebaseDB, "patients", newPatient.id), newPatient).catch((error) =>
-        console.error("Failed to persist patient", error),
-      );
+
+      try {
+        await setDoc(doc(firebaseDB, "patients", newPatient.id), newPatient);
+        // Listener will update the state
+      } catch (error) {
+        console.error("Failed to persist patient", error);
+        throw error;
+      }
     },
-    addCase: (payload: Partial<Case> & { title: string; patientId: string }) => {
+    addCase: async (payload: Partial<Case> & { title: string; patientId: string }) => {
+      const authUser = get().authUser;
+      if (!authUser) throw new Error("Authenticated user required");
+
       const now = new Date().toISOString();
       const newCase: Case = {
-        id: `case-${crypto.randomUUID().slice(0, 5)}`,
+        id: `case-${crypto.randomUUID().slice(0, 8)}`,
         title: payload.title,
         patientId: payload.patientId,
-        physiotherapistId: get().authUser?.id ?? "u-physio",
-        expertId: payload.expertId,
-        status: "Draft",
+        physiotherapistId: authUser.id,
+        expertId: payload.expertId ?? null,
+        status: payload.status ?? "Draft",
         createdAt: now,
         updatedAt: now,
         mskSummary: payload.mskSummary ?? "",
@@ -271,39 +320,44 @@ export const useAppStore = create<AppState>((set, get) => {
           treadmill: [],
         },
       };
-      set((state) => ({ cases: [newCase, ...state.cases] }));
-      setDoc(doc(firebaseDB, "cases", newCase.id), newCase).catch((error) =>
-        console.error("Failed to persist case", error),
-      );
+
+      try {
+        await setDoc(doc(firebaseDB, "cases", newCase.id), newCase);
+      } catch (error) {
+        console.error("Failed to persist case", error);
+        throw error;
+      }
     },
-    updateCase: (caseId: string, patch: Partial<Case>) => {
+    updateCase: async (caseId: string, patch: Partial<Case>) => {
       const updatedAt = new Date().toISOString();
-      set((state) => ({
-        cases: state.cases.map((item) =>
-          item.id === caseId ? { ...item, ...patch, updatedAt } : item,
-        ),
-      }));
-      updateDoc(doc(firebaseDB, "cases", caseId), { ...patch, updatedAt }).catch((error) =>
-        console.error("Failed to update case", error),
-      );
+      const cleanPatch = { ...patch, updatedAt };
+      if (cleanPatch.expertId === undefined) {
+        // preserve existing if not in patch, but if we want to CLEAR it, we should pass null
+      }
+
+      try {
+        await updateDoc(doc(firebaseDB, "cases", caseId), cleanPatch as any);
+      } catch (error) {
+        console.error("Failed to update case", error);
+        throw error;
+      }
     },
-    addReport: (report: Report) => {
+    addReport: async (report: Report) => {
       const persistedReport: Report = { ...report, updatedAt: new Date().toISOString() };
-      set((state) => {
-        const nextReports = state.reports.filter((item) => item.caseId !== report.caseId);
-        return { reports: [persistedReport, ...nextReports] };
-      });
-      setDoc(doc(firebaseDB, "reports", `report-${report.caseId}`), persistedReport).catch((error) =>
-        console.error("Failed to save report", error),
-      );
+      try {
+        await setDoc(doc(firebaseDB, "reports", `report-${report.caseId}`), persistedReport);
+      } catch (error) {
+        console.error("Failed to save report", error);
+        throw error;
+      }
     },
-    updateUserRole: (userId: string, role: Role) => {
-      set((state) => ({
-        users: state.users.map((user) => (user.id === userId ? { ...user, role } : user)),
-      }));
-      updateDoc(doc(firebaseDB, "users", userId), { role }).catch((error) =>
-        console.error("Failed to update user role", error),
-      );
+    updateUserRole: async (userId: string, role: Role) => {
+      try {
+        await updateDoc(doc(firebaseDB, "users", userId), { role });
+      } catch (error) {
+        console.error("Failed to update user role", error);
+        throw error;
+      }
     },
   };
 });

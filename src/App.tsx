@@ -7,6 +7,7 @@ import { PhysioDashboard } from "./pages/physio/Dashboard";
 import { PatientsPage } from "./pages/physio/Patients";
 import { PatientProfile } from "./pages/physio/PatientProfile";
 import { CaseWizard } from "./pages/physio/CaseWizard";
+import { PhysioActivity } from "./pages/physio/Activity";
 import { CaseDetail } from "./pages/physio/CaseDetail";
 import { CaseReport } from "./pages/physio/CaseReport";
 import { AdminDashboard } from "./pages/admin/Dashboard";
@@ -24,6 +25,7 @@ export const App = () => {
 
       <Route element={<ProtectedRoute role="physio" />}>
         <Route path="/dashboard" element={<PhysioDashboard />} />
+        <Route path="/activity" element={<PhysioActivity />} />
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/patients/:patientId" element={<PatientProfile />} />
         <Route path="/cases/new" element={<CaseWizard />} />

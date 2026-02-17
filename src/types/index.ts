@@ -103,7 +103,7 @@ export interface Case {
   title: string;
   status: CaseStatus;
   physiotherapistId: string;
-  expertId?: string;
+  expertId: string | null;
   patientId: string;
   createdAt: string;
   updatedAt: string;
@@ -118,6 +118,7 @@ export interface Case {
 
 export interface Report {
   caseId: string;
+  physiotherapistId: string;
   sections: Record<string, string>;
   status: "Draft" | "Report Ready";
   updatedAt: string;

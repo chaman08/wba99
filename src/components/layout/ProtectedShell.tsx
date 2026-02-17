@@ -8,6 +8,7 @@ import type { Role } from "../../types";
 const navConfig: Record<Role, { label: string; to: string }[]> = {
   physio: [
     { label: "Overview", to: "/dashboard" },
+    { label: "Activity", to: "/activity" },
     { label: "Patients", to: "/patients" },
     { label: "New case", to: "/cases/new" },
   ],

@@ -148,23 +148,32 @@ export const CaseWizard = () => {
         setActiveStep((prev) => Math.min(steps.length - 1, prev + 1));
     };
 
-    const onSubmit = (values: WizardForm) => {
+    const onSubmit = async (values: WizardForm) => {
         if (submitted) return;
+        setStepError("");
+        setSavedLabel("Submitting...");
 
-        addCase({
-            title: `${patients.find((patient) => patient.id === values.patientId)?.name} · ${selectedTest ? selectedTest.toUpperCase() : 'Assessment'}`,
-            patientId: values.patientId,
-            mskSummary: values.mskSummary || "",
-            mskData: values.mskData,
-            media: {
-                posture: postureGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
-                ground: groundGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
-                treadmill: treadmillGroup.files.map((name) => ({ id: name, label: name, files: [], required: false, completed: true })),
-            },
-        });
-        localStorage.removeItem(DRAFT_KEY);
-        setSubmitted(true);
-        setSavedLabel("Case submitted");
+        try {
+            await addCase({
+                title: `${patients.find((patient) => patient.id === values.patientId)?.name || 'Patient'} · ${selectedTest ? selectedTest.toUpperCase() : 'Assessment'}`,
+                patientId: values.patientId,
+                status: "Submitted",
+                mskSummary: values.mskSummary || "",
+                mskData: values.mskData,
+                media: {
+                    posture: postureGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
+                    ground: groundGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
+                    treadmill: treadmillGroup.files.map((name) => ({ id: name, label: name, files: [], required: false, completed: true })),
+                },
+            });
+            localStorage.removeItem(DRAFT_KEY);
+            setSubmitted(true);
+            setSavedLabel("Case submitted");
+        } catch (error) {
+            console.error("Submission failed", error);
+            setStepError("Submission failed. Please try again.");
+            setSavedLabel("Error saving case");
+        }
     };
 
     const renderStep = () => {

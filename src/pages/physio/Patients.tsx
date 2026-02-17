@@ -5,7 +5,6 @@ import { useAppStore } from "../../store/useAppStore";
 
 export const PatientsPage = () => {
   const patients = useAppStore((state) => state.patients);
-  const authUser = useAppStore((state) => state.authUser);
   const addPatient = useAppStore((state) => state.addPatient);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -16,15 +15,18 @@ export const PatientsPage = () => {
     return patients.filter((patient) => patient.name.toLowerCase().includes(search.toLowerCase()));
   }, [patients, search]);
 
-  const onSubmit = (values: { name: string; age: number; tags: string }) => {
-    addPatient({
-      name: values.name,
-      age: Number(values.age),
-      physiotherapistId: authUser?.id ?? "u-physio",
-      tags: values.tags.split(",").map((tag) => tag.trim()),
-    });
-    reset();
-    setModalOpen(false);
+  const onSubmit = async (values: { name: string; age: number; tags: string }) => {
+    try {
+      await addPatient({
+        name: values.name,
+        age: Number(values.age),
+        tags: values.tags ? values.tags.split(",").map((tag) => tag.trim()) : [],
+      });
+      reset();
+      setModalOpen(false);
+    } catch (error) {
+      console.error("Failed to add patient", error);
+    }
   };
 
   return (
