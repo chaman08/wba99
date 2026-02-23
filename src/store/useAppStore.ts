@@ -67,7 +67,13 @@ const mapPatient = (snapshot: QueryDocumentSnapshot<DocumentData>): Patient => {
   return {
     id: (data.id as string) ?? snapshot.id,
     name: data.name ?? "",
+    phone: data.phone ?? "",
     age: Number(data.age ?? 0),
+    gender: data.gender,
+    height: data.height,
+    weight: data.weight,
+    complaint: data.complaint,
+    notes: data.notes,
     lastSession: parseTimestampString(data.lastSession as string | Timestamp, ""),
     tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
     physiotherapistId: data.physiotherapistId ?? "",

@@ -1,123 +1,189 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Users,
+  Activity,
+  Plus,
+  ArrowUpRight,
+  TrendingUp,
+  Clock,
+  ChevronRight,
+  Camera,
+  Stethoscope,
+  UserPlus,
+  FileText
+} from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { FileText, ArrowRight, Clock } from "lucide-react";
-
-const statConfig = [
-  { label: "Active patients", key: "patients" },
-  { label: "Submitted cases", key: "submitted" },
-  { label: "Report ready", key: "reportReady" },
-];
 
 export const PhysioDashboard = () => {
-  const cases = useAppStore((state) => state.cases);
-  const patients = useAppStore((state) => state.patients);
   const navigate = useNavigate();
+  const { authUser, patients, cases, reports } = useAppStore();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const filteredCases = cases;
-  const filteredPatients = patients;
-  const readyReports = cases.filter((item) => item.status === "Report Ready");
+  const stats = useMemo(() => [
+    { label: "Total Clients", value: patients.length, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Assessments (Weekly)", value: cases.filter(c => new Date(c.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
+    { label: "Reports Ready", value: reports.length, icon: FileText, color: "text-purple-500", bg: "bg-purple-500/10" },
+  ], [patients, cases, reports]);
 
-  const submitted = filteredCases.filter((item) => item.status === "Submitted").length;
-  const reportReady = filteredCases.filter((item) => item.status === "Report Ready").length;
-  const stats = {
-    patients: filteredPatients.length,
-    submitted,
-    reportReady,
-  };
+  const recentClients = useMemo(() =>
+    [...patients].sort((a, b) => new Date(b.lastSession).getTime() - new Date(a.lastSession).getTime()).slice(0, 5)
+    , [patients]);
 
-  const statusMap: Record<string, string> = {
-    Draft: "text-text-muted bg-white/5",
-    Submitted: "text-accent bg-accent/10",
-    Assigned: "text-secondary bg-secondary/10",
-    "In Review": "text-primary bg-primary/10",
-    "Report Ready": "text-success bg-success/10",
-    Completed: "text-text-muted bg-white/5",
-  };
+  const recentAssessments = useMemo(() =>
+    [...cases].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10)
+    , [cases]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {statConfig.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-3xl border border-white/5 bg-surface/70 p-5 transition hover:shadow-soft-light sm:hover:-translate-y-1"
+    <div className="space-y-8 animate-in fade-in duration-500 pb-24 lg:pb-8">
+      {/* Header */}
+      <header className="flex flex-col gap-1">
+        <h2 className="text-3xl font-bold tracking-tight">Clinic Workspace</h2>
+        <p className="text-text-muted">Welcome back, {authUser?.name}. What's next?</p>
+      </header>
+
+      {/* Quick Start Cards */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "New Client", icon: UserPlus, to: "/app/clients", color: "bg-blue-600" },
+          { label: "Posture", icon: Camera, to: "/app/assess", color: "bg-primary" },
+          { label: "Gait/Run", icon: Activity, to: "/app/assess", color: "bg-secondary" },
+          { label: "MSK Form", icon: Stethoscope, to: "/app/assess", color: "bg-purple-600" },
+        ].map((action) => (
+          <button
+            key={action.label}
+            onClick={() => navigate(action.to)}
+            className="flex flex-col items-center justify-center p-6 bg-surface/50 border border-white/5 rounded-[2rem] hover:bg-surface hover:border-primary/20 transition-all group gap-3 shadow-sm"
           >
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.4em] text-text-muted">{stat.label}</p>
-            <p className="mt-3 sm:mt-4 text-2xl sm:text-3xl font-semibold">{stats[stat.key as keyof typeof stats]}</p>
-          </div>
+            <div className={`h-12 w-12 rounded-2xl ${action.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+              <action.icon className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest">{action.label}</span>
+          </button>
         ))}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Recent Activity */}
-        <section className="lg:col-span-2 space-y-4 rounded-3xl bg-surface/70 p-6 shadow-soft-light">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Feed: Recent Assessments */}
+        <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text">Recent case activity</h2>
-            <Link to="/cases" className="text-xs text-primary hover:underline">View all cases</Link>
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" /> Recent Assessments
+            </h3>
+            <button onClick={() => navigate("/app/activity")} className="text-xs font-bold text-primary hover:underline">View All</button>
           </div>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            {filteredCases.slice(0, 4).map((item) => (
-              <article
-                key={item.id}
-                onClick={() => navigate(`/cases/${item.id}`)}
-                className="group cursor-pointer rounded-3xl border border-white/5 bg-background/40 p-5 transition duration-200 hover:border-primary/40 hover:bg-background/60"
+
+          <div className="space-y-3">
+            {recentAssessments.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/app/cases/${c.id}`)}
+                className="group flex items-center justify-between p-4 bg-surface/30 border border-white/5 rounded-2xl hover:bg-surface/50 hover:border-primary/30 transition-all cursor-pointer"
               >
-                <div className="flex items-center justify-between text-xs">
-                  <span className="uppercase tracking-[0.3em] text-text-muted">{item.id.split('-')[1]}</span>
-                  <span className={`rounded-2xl px-3 py-1 text-[10px] font-semibold ${statusMap[item.status]}`}>{item.status}</span>
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-text truncate">{item.title}</h3>
-                <p className="mt-2 text-xs text-text-muted flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Updated {new Date(item.updatedAt).toLocaleDateString()}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* Right Column: Reports Section */}
-        <section className="space-y-4 rounded-3xl bg-surface/70 p-6 shadow-soft-light">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Ready Reports
-            </h2>
-            <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
-              {readyReports.length}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {readyReports.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center bg-background/30 rounded-2xl border border-dashed border-white/10">
-                <FileText className="w-10 h-10 text-text-muted/20 mb-2" />
-                <p className="text-sm text-text-muted">No reports ready for review yet.</p>
-              </div>
-            ) : (
-              readyReports.map((reportCase) => (
-                <article
-                  key={`report-${reportCase.id}`}
-                  onClick={() => navigate(`/cases/${reportCase.id}/report`)}
-                  className="group cursor-pointer rounded-2xl border border-white/5 bg-background/40 p-4 transition hover:border-success/40 hover:bg-background/60"
-                >
-                  <p className="text-[10px] uppercase tracking-widest text-text-muted">Case: {reportCase.id.split('-')[1]}</p>
-                  <h4 className="mt-1 font-semibold text-text text-sm line-clamp-1 group-hover:text-success transition-colors">{reportCase.title}</h4>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-[11px] text-text-muted flex items-center gap-1">
-                      Available now
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-success group-hover:translate-x-1 transition-transform" />
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Activity className="h-5 w-5 text-text-muted group-hover:text-primary transition-colors" />
                   </div>
-                </article>
-              ))
+                  <div>
+                    <p className="text-sm font-bold group-hover:text-primary transition-colors">{c.title}</p>
+                    <p className="text-[10px] text-text-muted">Updated {new Date(c.updatedAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${c.status === 'Report Ready' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
+                    }`}>
+                    {c.status}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </div>
+              </div>
+            ))}
+            {recentAssessments.length === 0 && (
+              <p className="text-sm text-text-muted py-12 text-center italic bg-surface/10 rounded-[2rem] border border-dashed border-white/5">No recent assessments found.</p>
             )}
           </div>
+        </div>
 
-          <button className="w-full mt-2 rounded-2xl bg-white/5 py-3 text-xs font-semibold text-text-muted transition hover:bg-white/10">
-            Archive all
-          </button>
-        </section>
+        {/* Sidebar Feed: Recent Clients & Snapshot */}
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" /> Recent Clients
+            </h3>
+            <div className="space-y-2">
+              {recentClients.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => navigate(`/app/clients/${p.id}`)}
+                  className="flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                      {p.name.charAt(0)}
+                    </div>
+                    <p className="text-sm font-bold">{p.name}</p>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-text-muted" />
+                </div>
+              ))}
+              {recentClients.length === 0 && (
+                <p className="text-xs text-text-muted p-4 text-center">No clients added yet.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="p-8 bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/20 rounded-[2.5rem] space-y-6 shadow-xl shadow-primary/5">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-primary opacity-80">Clinic Snapshot</h3>
+            <div className="space-y-6">
+              {stats.map((s) => (
+                <div key={s.label} className="flex items-center gap-4">
+                  <div className={`h-12 w-12 rounded-2xl ${s.bg} flex items-center justify-center shadow-inner`}>
+                    <s.icon className={`h-6 w-6 ${s.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mb-0.5">{s.label}</p>
+                    <p className="text-2xl font-bold tracking-tight">{s.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Floating Action Button (Mobile) */}
+      <div className="fixed bottom-24 right-6 lg:bottom-10 lg:right-10 z-[60]">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className={`h-16 w-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-500 ${isMenuOpen ? "bg-white text-primary rotate-45" : "bg-primary text-white hover:scale-110 active:scale-95"}`}
+        >
+          <Plus className="h-8 w-8" />
+        </button>
+
+        {isMenuOpen && (
+          <>
+            <div className="fixed inset-0 bg-background/60 backdrop-blur-md z-[-1]" onClick={() => setIsMenuOpen(false)} />
+            <div className="absolute bottom-20 right-0 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-500">
+              {[
+                { label: "Add Client", icon: UserPlus, to: "/app/clients" },
+                { label: "Gait Assessment", icon: Activity, to: "/app/assess" },
+                { label: "Posture Assessment", icon: Camera, to: "/app/assess" },
+                { label: "MSK Screening", icon: Stethoscope, to: "/app/assess" },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => { navigate(item.to); setIsMenuOpen(false); }}
+                  className="flex items-center gap-4 px-6 py-5 bg-surface-light border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:bg-surface hover:text-primary transition-all whitespace-nowrap w-full group active:scale-95"
+                >
+                  <span className="text-sm font-bold">{item.label}</span>
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors">
+                    <item.icon className="h-5 w-5 text-primary group-hover:text-white" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
