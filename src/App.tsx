@@ -42,7 +42,7 @@ export const App = () => {
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route path="/provisioning" element={<AuthProvisioning />} />
 
-        <Route element={<ProtectedRoute variant="physio" />}>
+        <Route element={<ProtectedRoute variant="clinician" />}>
           <Route path="/app/dashboard" element={<PhysioDashboard />} />
           <Route path="/app/clients" element={<PatientsPage />} />
           <Route path="/app/clients/:patientId" element={<PatientProfile />} />

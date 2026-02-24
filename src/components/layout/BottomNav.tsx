@@ -6,14 +6,14 @@ import {
     FileText,
     Settings
 } from "lucide-react";
-import type { Role } from "../../types";
+import type { UserRole } from "../../types";
 
 interface BottomNavProps {
-    role: Role;
+    role: UserRole;
 }
 
-const navConfig = {
-    physio: [
+const navConfig: Record<string, any[]> = {
+    clinician: [
         { label: "Home", to: "/app/dashboard", icon: Home },
         { label: "Clients", to: "/app/clients", icon: Users },
         { label: "Assess", to: "/app/assess", icon: Crosshair },
@@ -28,10 +28,13 @@ const navConfig = {
 };
 
 export const BottomNav = ({ role }: BottomNavProps) => {
+    // Fallback for roles not in config
+    const items = navConfig[role] || (role === "owner" ? navConfig.admin : navConfig.clinician);
+
     return (
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface/80 backdrop-blur-xl border-t border-white/10 pb-safe-area z-50">
             <div className="flex items-center justify-around h-16">
-                {navConfig[role].map((item) => (
+                {items.map((item: any) => (
                     <NavLink
                         key={item.to}
                         to={item.to}

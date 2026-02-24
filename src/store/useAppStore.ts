@@ -156,6 +156,9 @@ const mapAssessment = (snapshot: QueryDocumentSnapshot<DocumentData>): Assessmen
     media: data.media ?? { photos: [], videos: [], frames: [] },
     annotations: data.annotations ?? { landmarks: { front: [], side: [] }, lines: [], angles: [] },
     metricsSummary: data.metricsSummary ?? {},
+    title: data.title ?? "New Assessment",
+    expertId: data.expertId,
+    mskSummary: data.mskSummary,
   };
 };
 
@@ -226,7 +229,7 @@ export interface AppState {
   acceptInvite: (inviteId: string, orgId: string, name: string, password: string) => Promise<void>;
   uploadFile: (path: string, file: File) => Promise<string>;
   addProfile: (profile: Omit<Profile, "id" | "createdAt" | "updatedAt" | "createdBy">) => Promise<void>;
-  addAssessment: (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy">) => Promise<void>;
+  addAssessment: (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy" | "title"> & { title?: string }) => Promise<void>;
   updateAssessment: (assessmentId: string, patch: Partial<Assessment>) => Promise<void>;
   addReport: (report: Report) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -648,7 +651,7 @@ export const useAppStore = create<AppState>((set, get) => {
         throw error;
       }
     },
-    addAssessment: async (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy">) => {
+    addAssessment: async (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy" | "title"> & { title?: string }) => {
       const authUser = get().authUser;
       const orgId = get().organisation?.id;
       if (!authUser || !orgId) throw new Error("Authenticated user and organisation required");
@@ -656,6 +659,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const now = new Date().toISOString();
       const newAssessment: Assessment = {
         id: `assessment-${crypto.randomUUID().slice(0, 8)}`,
+        title: assessment.title || "New Assessment",
         ...assessment,
         createdAt: now,
         updatedAt: now,

@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
   roles?: UserRole[];
   adminOnly?: boolean;
   label?: string;
-  variant?: "admin" | "physio";
+  variant?: "admin" | "clinician";
 }
 
 const getHomeRoute = (user: { role: UserRole; isAdmin: boolean }) => {
@@ -16,7 +16,7 @@ const getHomeRoute = (user: { role: UserRole; isAdmin: boolean }) => {
   return "/app/view";
 };
 
-export const ProtectedRoute = ({ roles, adminOnly, label, variant = "physio" }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ roles, adminOnly, label, variant = "clinician" }: ProtectedRouteProps) => {
   const { authUser, isLoadingAuth, isProvisioning, authError } = useAppStore();
 
   if (isLoadingAuth) {
@@ -66,7 +66,7 @@ export const ProtectedRoute = ({ roles, adminOnly, label, variant = "physio" }: 
   }
 
   return (
-    <ProtectedShell role="physio" label={label}>
+    <ProtectedShell role="clinician" label={label}>
       <Outlet />
     </ProtectedShell>
   );

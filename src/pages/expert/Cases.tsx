@@ -6,16 +6,16 @@ export const ExpertCases = () => {
   const user = useAppStore((state) => state.authUser);
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
-  const cases = useAppStore((state) => state.cases);
+  const assessments = useAppStore((state) => state.assessments);
   const assignedCases = useMemo(
-    () => cases.filter((item) => item.expertId === user?.id),
-    [cases, user?.id],
+    () => assessments.filter((item: any) => item.expertId === user?.uid),
+    [assessments, user?.uid],
   );
 
   const filtered = useMemo(() => {
-    return assignedCases.filter((item) => {
+    return assignedCases.filter((item: any) => {
       const matchesStatus = filter === "All" || item.status === filter;
-      const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
+      const matchesQuery = (item.title || "").toLowerCase().includes(query.toLowerCase());
       return matchesStatus && matchesQuery;
     });
   }, [assignedCases, filter, query]);
@@ -34,9 +34,8 @@ export const ExpertCases = () => {
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`rounded-full border px-4 py-2 text-xs transition ${
-                filter === status ? "border-primary text-primary" : "border-white/10 text-text-muted"
-              }`}
+              className={`rounded-full border px-4 py-2 text-xs transition ${filter === status ? "border-primary text-primary" : "border-white/10 text-text-muted"
+                }`}
             >
               {status}
             </button>

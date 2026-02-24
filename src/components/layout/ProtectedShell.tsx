@@ -19,8 +19,7 @@ import {
 import { ThemeToggle } from "../buttons/ThemeToggle";
 import { useAppStore } from "../../store/useAppStore";
 import { BottomNav } from "./BottomNav";
-
-type Role = "admin" | "physio";
+import type { UserRole } from "../../types";
 
 interface NavItem {
   label: string;
@@ -28,8 +27,8 @@ interface NavItem {
   icon: any;
 }
 
-const navConfig: Record<Role, NavItem[]> = {
-  physio: [
+const navConfig: Record<string, NavItem[]> = {
+  clinician: [
     { label: "Home", to: "/app/dashboard", icon: LayoutDashboard },
     { label: "Clients", to: "/app/clients", icon: Users },
     { label: "Assess", to: "/app/assess", icon: Activity },
@@ -44,7 +43,7 @@ const navConfig: Record<Role, NavItem[]> = {
 };
 
 interface ProtectedShellProps {
-  role: Role;
+  role: UserRole;
   label?: string;
   children: ReactNode;
 }
@@ -63,7 +62,8 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const activeNavItem = navConfig[role].find(item => location.pathname.startsWith(item.to));
+  const config = navConfig[role] || (role === "owner" ? navConfig.admin : navConfig.clinician);
+  const activeNavItem = config.find(item => location.pathname.startsWith(item.to));
   const pageTitle = label ?? activeNavItem?.label ?? "Workspace";
 
   const handleLogout = () => {
@@ -97,7 +97,7 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navConfig[role].map((item) => (
+          {config.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -118,7 +118,7 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
             </NavLink>
           ))}
 
-          {user?.isAdmin && role === "physio" && (
+          {user?.isAdmin && (role === "clinician" || role === "assistant") && (
             <NavLink
               to="/admin/home"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-text-muted hover:bg-white/5 hover:text-text"
@@ -249,7 +249,7 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-2">
-              {navConfig[role].map((item) => (
+              {config.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

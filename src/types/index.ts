@@ -1,7 +1,7 @@
 export type UserRole = "owner" | "admin" | "clinician" | "assistant" | "readOnly";
 export type UserStatus = "active" | "disabled";
 export type ProfileStatus = "active" | "archived";
-export type AssessmentStatus = "draft" | "final";
+export type AssessmentStatus = "draft" | "submitted" | "assigned" | "in_review" | "final" | "completed" | "Report Ready" | "Assigned" | "In Review" | "Completed" | "Submitted";
 export type AssessmentType = "posture" | "movement" | "treadmill" | "msk";
 export type ProgramAssignmentStatus = "active" | "completed" | "paused";
 
@@ -141,6 +141,9 @@ export interface Assessment {
   media: AssessmentMedia;
   annotations: AssessmentAnnotations;
   metricsSummary: AssessmentMetrics;
+  title: string;
+  mskSummary?: string;
+  expertId?: string;
 }
 
 export interface Report {

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useAppStore } from "../../store/useAppStore";
 
 export const AdminDashboard = () => {
-  const cases = useAppStore((state) => state.cases);
+  const assessments = useAppStore((state) => state.assessments);
   const users = useAppStore((state) => state.users);
 
   const adminCount = useMemo(
@@ -11,11 +11,11 @@ export const AdminDashboard = () => {
   );
 
   const stats = useMemo(() => {
-    const total = cases.length;
-    const pending = cases.filter((item) => item.status === "Submitted").length;
-    const completed = cases.filter((item) => item.status === "Report Ready" || item.status === "Completed").length;
+    const total = assessments.length;
+    const pending = assessments.filter((item: any) => item.status === "Submitted" || item.status === "submitted").length;
+    const completed = assessments.filter((item: any) => item.status === "Report Ready" || item.status === "Completed" || item.status === "completed" || item.status === "final").length;
     return { total, pending, completed, admins: adminCount };
-  }, [cases, adminCount]);
+  }, [assessments, adminCount]);
 
   return (
     <section className="space-y-6 rounded-3xl bg-surface/70 p-6 shadow-soft-light animate-fade-in">

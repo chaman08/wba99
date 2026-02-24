@@ -3,12 +3,12 @@ import { useAppStore } from "../../store/useAppStore";
 
 export const ExpertDashboard = () => {
   const user = useAppStore((state) => state.authUser);
-  const cases = useAppStore((state) => state.cases);
-  const assignedCases = useMemo(() => cases.filter((item) => item.expertId === user?.id), [cases, user?.id]);
+  const assessments = useAppStore((state) => state.assessments);
+  const assignedCases = useMemo(() => assessments.filter((item: any) => item.expertId === user?.uid), [assessments, user?.uid]);
 
   const statusBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    assignedCases.forEach((item) => {
+    assignedCases.forEach((item: any) => {
       breakdown[item.status] = (breakdown[item.status] ?? 0) + 1;
     });
     return breakdown;
@@ -34,7 +34,12 @@ export const ExpertDashboard = () => {
         <article className="rounded-3xl border border-white/5 bg-background/30 p-4">
           <p className="text-xs uppercase tracking-[0.4em] text-text-muted">Last update</p>
           <p className="mt-2 text-sm text-text-muted">
-            {assignedCases[0] ? new Date(assignedCases[0].updatedAt).toLocaleDateString() : "—"}
+            {assignedCases[0]?.updatedAt
+              ? (typeof assignedCases[0].updatedAt === 'string'
+                ? new Date(assignedCases[0].updatedAt)
+                : new Date(assignedCases[0].updatedAt.seconds * 1000)
+              ).toLocaleDateString()
+              : "—"}
           </p>
         </article>
       </div>
