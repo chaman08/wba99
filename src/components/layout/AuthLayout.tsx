@@ -1,5 +1,5 @@
 import { Activity, Bone, Footprints, User } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
@@ -23,9 +23,10 @@ export interface AuthLayoutProps {
 
 export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }: AuthLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isDesktop, setIsDesktop] = useState(true);
   const shouldLanding = landingEnabled ?? true;
-  const [showForm, setShowForm] = useState(!shouldLanding);
+  const [showForm, setShowForm] = useState(location.state?.showForm ?? !shouldLanding);
   const effectiveAction = action ?? "login";
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
         setShowForm(true);
         return;
       }
-      navigate(target === "login" ? "/login" : "/signup");
+      navigate(target === "login" ? "/login" : "/signup", { state: { showForm: true } });
     },
     [effectiveAction, navigate],
   );
@@ -141,9 +142,8 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute top-1/2 right-1/4 -translate-y-1/2 translate-x-1/2 w-[800px] h-[800px] bg-secondary/10 rounded-full blur-[140px] pointer-events-none" />
-
-      <div className="relative z-10 mx-auto flex min-h-screen items-center justify-center p-6 lg:p-12">
-        <div className="flex w-full max-w-6xl h-[800px] rounded-[48px] overflow-hidden border border-white/10 bg-slate-950/50 backdrop-blur-2xl shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)]">
+      <div className="relative z-10 mx-auto flex min-h-screen items-center justify-center p-4 lg:p-12">
+        <div className="flex w-full max-w-6xl min-h-[auto] lg:h-[800px] rounded-[32px] lg:rounded-[48px] overflow-visible lg:overflow-hidden border border-white/10 bg-slate-950/50 backdrop-blur-2xl shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)]">
 
           {/* Hero Side */}
           <div className="hidden lg:flex flex-1 flex-col items-center justify-center p-16 relative overflow-hidden border-r border-white/5">
@@ -190,8 +190,8 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
           </div>
 
           {/* Form Side */}
-          <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-16 bg-slate-900/40 relative">
-            <div className="w-full max-w-sm space-y-8">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-16 bg-slate-900/40 relative min-h-[600px] lg:min-h-0">
+            <div className="w-full max-w-sm space-y-8 my-auto">
               <div className="text-center lg:text-left">
                 {!isDesktop && (
                   <button
@@ -214,8 +214,8 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
               </div>
             </div>
 
-            {/* Bottom Accent */}
-            <div className="absolute bottom-8 text-center">
+            {/* Bottom Accent - Changed absolute to relative/static-ish on mobile to prevent overlap */}
+            <div className="mt-12 lg:absolute lg:bottom-8 text-center pb-8 lg:pb-0">
               <div className="flex flex-col items-center gap-2">
                 <p className="text-[12px] uppercase tracking-[0.4em] text-white/40 font-black">
                   Powered by
