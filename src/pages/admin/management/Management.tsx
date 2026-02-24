@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Plus,
@@ -12,54 +12,25 @@ import {
 import { DataTable } from "../../../components/common/DataTable";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { Modal } from "../../../components/common/Modal";
-
-interface Category {
-    id: string;
-    name: string;
-    description: string;
-    profileCount: number;
-}
-
-interface Group {
-    id: string;
-    name: string;
-    category: string;
-    profileCount: number;
-    assignedUsers: string;
-}
-
-interface UserAccess {
-    id: string;
-    name: string;
-    groups: string;
-    email: string;
-    dateCreated: string;
-    role: string;
-}
-
-const mockCategories: Category[] = [
-    { id: "1", name: "Performance", description: "High-level athletic performance tracking", profileCount: 24 },
-    { id: "2", name: "Rehabilitation", description: "Injury recovery and physiotherapy", profileCount: 15 },
-    { id: "3", name: "Clinical", description: "Standard clinical assessments", profileCount: 42 },
-];
-
-const mockGroups: Group[] = [
-    { id: "1", name: "Junior Squad", category: "Performance", profileCount: 12, assignedUsers: "Dr. Smith, Coach Mike" },
-    { id: "2", name: "ACL Recovery", category: "Rehabilitation", profileCount: 8, assignedUsers: "Dr. Jones" },
-    { id: "3", name: "Corporate Fitness", category: "Performance", profileCount: 20, assignedUsers: "Dr. Smith" },
-];
-
-const mockUsers: UserAccess[] = [
-    { id: "1", name: "Dr. Alan Smith", groups: "Junior Squad, Corporate Fitness", email: "alan@wba99.com", dateCreated: "2024-01-10", role: "Clinician" },
-    { id: "2", name: "Sarah Miller", groups: "All Groups", email: "sarah@wba99.com", dateCreated: "2023-11-05", role: "Admin" },
-    { id: "3", name: "Coach Mike", groups: "Junior Squad", email: "mike@wba99.com", dateCreated: "2024-02-15", role: "Assistant" },
-];
+import { useAppStore } from "../../../store/useAppStore";
+import type { Category, Group } from "../../../types";
 
 export const Management = () => {
     const { tab } = useParams();
     const navigate = useNavigate();
+    const { users, categories, groups, profiles, organisation, organisations } = useAppStore();
     const currentTab = tab || "categories";
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const usersWithOrg = useMemo(() => {
+        return users.map(u => {
+            const org = organisations.find(o => o.id === u.orgId) || (u.orgId === organisation?.id ? organisation : null);
+            return {
+                ...u,
+                organisationName: org?.name || 'Unknown Organisation'
+            };
+        });
+    }, [users, organisations, organisation]);
 
     const tabs = [
         { id: "categories", label: "Categories", icon: Layers },
@@ -73,32 +44,89 @@ export const Management = () => {
     const categoryColumns = [
         { key: "name" as const, header: "Category Name", sortable: true },
         { key: "description" as const, header: "Description" },
-        { key: "profileCount" as const, header: "Number of Profiles", sortable: true },
+        {
+            key: "id" as const, // We use ID to calculate count
+            header: "Number of Profiles",
+            sortable: true,
+            render: (c: Category) => {
+                const count = profiles.filter(p => p.categoryId === c.id).length;
+                return count.toString();
+            }
+        },
         { key: "actions" as const, header: "" }
     ];
 
     const groupColumns = [
         { key: "name" as const, header: "Group Name", sortable: true },
-        { key: "category" as const, header: "Category", sortable: true },
-        { key: "profileCount" as const, header: "Number of Profiles", sortable: true },
-        { key: "assignedUsers" as const, header: "Assigned Users" },
+        {
+            key: "categoryId" as const,
+            header: "Category",
+            sortable: true,
+            render: (g: Group) => {
+                const cat = categories.find(c => c.id === g.categoryId);
+                return cat?.name || "Uncategorized";
+            }
+        },
+        {
+            key: "profileCount" as const,
+            header: "Number of Profiles",
+            sortable: true,
+            render: (g: Group) => {
+                const count = profiles.filter(p => p.groupId === g.id).length;
+                return count.toString();
+            }
+        },
+        {
+            key: "assignedUserIds" as const,
+            header: "Assigned Users",
+            render: (g: Group) => {
+                if (!g.assignedUserIds?.length) return "None";
+                return g.assignedUserIds
+                    .map(uid => users.find(u => u.uid === uid)?.name || "Unknown")
+                    .join(", ");
+            }
+        },
         { key: "actions" as const, header: "" }
     ];
 
     const userColumns = [
         { key: "name" as const, header: "User Name", sortable: true },
         {
-            key: "role" as const, header: "Role", render: (u: UserAccess) => (
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${u.role === 'Admin' ? 'bg-purple-50 text-purple-600' :
-                    u.role === 'Clinician' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'
+            key: "organisationName" as const,
+            header: "Organisation",
+            sortable: true
+        },
+        {
+            key: "role" as const, header: "Role", render: (u: any) => (
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${u.role === 'owner' || u.role === 'admin' ? 'bg-purple-50 text-purple-600' :
+                    u.role === 'clinician' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'
                     }`}>
                     {u.role}
                 </span>
             )
         },
-        { key: "groups" as const, header: "Assigned Groups" },
+        {
+            key: "allowedGroupIds" as const,
+            header: "Assigned Groups",
+            render: (u: any) => {
+                if (u.allowedGroupIds?.includes("*")) return "All Groups";
+                if (!u.allowedGroupIds?.length) return "None";
+                return u.allowedGroupIds
+                    .map((gid: string) => groups.find(g => g.id === gid)?.name || gid)
+                    .join(", ");
+            }
+        },
         { key: "email" as const, header: "Email" },
-        { key: "dateCreated" as const, header: "Date Created", sortable: true },
+        {
+            key: "createdAt" as const,
+            header: "Date Created",
+            sortable: true,
+            render: (u: any) => {
+                if (!u.createdAt) return "-";
+                const date = typeof u.createdAt === 'string' ? new Date(u.createdAt) : new Date(u.createdAt.seconds * 1000);
+                return date.toLocaleDateString();
+            }
+        },
         { key: "actions" as const, header: "" }
     ];
 
@@ -143,7 +171,7 @@ export const Management = () => {
                 {tabs.map((t) => (
                     <button
                         key={t.id}
-                        onClick={() => navigate(`/app/admin/management/${t.id}`)}
+                        onClick={() => navigate(`/admin/management/${t.id}`)}
                         className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all relative whitespace-nowrap ${currentTab === t.id
                             ? "text-[#0F172A]"
                             : "text-slate-500 hover:text-slate-700"
@@ -160,8 +188,8 @@ export const Management = () => {
 
             <div className="pt-2">
                 {currentTab === "categories" && (
-                    mockCategories.length > 0 ? (
-                        <DataTable columns={categoryColumns} data={mockCategories} uniqueKey="id" />
+                    categories.length > 0 ? (
+                        <DataTable columns={categoryColumns} data={categories} uniqueKey="id" />
                     ) : (
                         <EmptyState
                             title="No Categories Yet"
@@ -172,8 +200,8 @@ export const Management = () => {
                 )}
 
                 {currentTab === "groups" && (
-                    mockGroups.length > 0 ? (
-                        <DataTable columns={groupColumns} data={mockGroups} uniqueKey="id" />
+                    groups.length > 0 ? (
+                        <DataTable columns={groupColumns} data={groups} uniqueKey="id" />
                     ) : (
                         <EmptyState
                             title="No Groups Yet"
@@ -184,7 +212,7 @@ export const Management = () => {
                 )}
 
                 {currentTab === "user-access" && (
-                    <DataTable columns={userColumns} data={mockUsers} uniqueKey="id" />
+                    <DataTable columns={userColumns} data={usersWithOrg} uniqueKey="uid" />
                 )}
 
                 {currentTab === "settings" && (
@@ -198,7 +226,7 @@ export const Management = () => {
                         <div className="space-y-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700">Date Format</label>
-                                <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200">
+                                <select defaultValue={organisation?.settings?.dateFormat || "DD/MM/YYYY"} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200">
                                     <option>DD/MM/YYYY</option>
                                     <option>MM/DD/YYYY</option>
                                     <option>YYYY-MM-DD</option>
@@ -208,11 +236,11 @@ export const Management = () => {
                                 <label className="text-sm font-bold text-slate-700">Measurement System</label>
                                 <div className="flex gap-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
                                     <label className="flex items-center gap-3 cursor-pointer group">
-                                        <input type="radio" name="unit" className="w-4 h-4 text-[#0F172A] border-slate-300 focus:ring-[#0F172A]" defaultChecked />
+                                        <input type="radio" name="unit" className="w-4 h-4 text-[#0F172A] border-slate-300 focus:ring-[#0F172A]" defaultChecked={organisation?.settings?.measurementSystem === 'metric'} />
                                         <span className="text-sm font-medium text-slate-700 group-hover:text-[#0F172A] transition-colors">Metric (kg, cm, Celsius)</span>
                                     </label>
                                     <label className="flex items-center gap-3 cursor-pointer group">
-                                        <input type="radio" name="unit" className="w-4 h-4 text-[#0F172A] border-slate-300 focus:ring-[#0F172A]" />
+                                        <input type="radio" name="unit" className="w-4 h-4 text-[#0F172A] border-slate-300 focus:ring-[#0F172A]" defaultChecked={organisation?.settings?.measurementSystem === 'imperial'} />
                                         <span className="text-sm font-medium text-slate-700 group-hover:text-[#0F172A] transition-colors">Imperial (lb, in, Fahrenheit)</span>
                                     </label>
                                 </div>
@@ -248,7 +276,7 @@ export const Management = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700">Organisation Name</label>
-                                    <input type="text" defaultValue="WBA99 Pro Performance" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                                    <input type="text" defaultValue={organisation?.name || "WBA99 Pro Performance"} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700">Type</label>
@@ -262,24 +290,28 @@ export const Management = () => {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700">Primary Address</label>
-                                <textarea rows={2} defaultValue="123 Elite Way, Performance Park, London, UK" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                                <textarea rows={2} defaultValue={organisation?.address1 || ""} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700">Website</label>
-                                    <input type="url" defaultValue="https://wba99.pro" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                                    <input type="url" placeholder="https://wba99.pro" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700">Contact Email</label>
-                                    <input type="email" defaultValue="contact@wba99.pro" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                                    <input type="email" defaultValue={organisation?.contactEmail || ""} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700">Organisation Logo</label>
                                 <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                                    <div className="h-16 w-16 bg-white rounded-xl flex items-center justify-center border border-slate-200 text-[#0F172A] font-bold text-xl">
-                                        WBA
-                                    </div>
+                                    {organisation?.logoUrl ? (
+                                        <img src={organisation.logoUrl} alt="Logo" className="h-16 w-16 bg-white rounded-xl object-contain border border-slate-200" />
+                                    ) : (
+                                        <div className="h-16 w-16 bg-white rounded-xl flex items-center justify-center border border-slate-200 text-[#0F172A] font-bold text-xl">
+                                            {organisation?.name?.substring(0, 3).toUpperCase() || "WBA"}
+                                        </div>
+                                    )}
                                     <div className="space-y-1">
                                         <button className="text-sm font-bold text-[#0F172A] hover:underline">Click to upload</button>
                                         <p className="text-[10px] text-slate-500 uppercase tracking-wider">PNG, JPG up to 5MB (400x400 recommended)</p>
@@ -318,7 +350,7 @@ export const Management = () => {
                                         </div>
                                     </div>
                                     <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${integration.status === 'Connected' ? 'bg-green-100 text-green-700' :
-                                            integration.status === 'Disconnected' ? 'bg-slate-200 text-slate-600' : 'bg-orange-100 text-orange-700'
+                                        integration.status === 'Disconnected' ? 'bg-slate-200 text-slate-600' : 'bg-orange-100 text-orange-700'
                                         }`}>
                                         {integration.status}
                                     </span>
@@ -388,9 +420,9 @@ export const Management = () => {
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-slate-700">Category</label>
                             <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all appearance-none cursor-pointer">
-                                <option>Performance</option>
-                                <option>Rehabilitation</option>
-                                <option>Clinical</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -417,10 +449,10 @@ export const Management = () => {
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-slate-700">Role</label>
                             <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all appearance-none cursor-pointer">
-                                <option>Clinician</option>
-                                <option>Admin</option>
-                                <option>Assistant</option>
-                                <option>Owner</option>
+                                <option value="clinician">Clinician</option>
+                                <option value="admin">Admin</option>
+                                <option value="assistant">Assistant</option>
+                                <option value="owner">Owner</option>
                             </select>
                         </div>
                     </div>

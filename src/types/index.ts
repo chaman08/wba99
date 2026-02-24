@@ -47,12 +47,14 @@ export interface Invite {
 
 export interface User {
   uid: string;
+  orgId: string;
   name: string;
   email: string;
   role: UserRole;
   isAdmin: boolean;
   allowedGroupIds: string[]; // or ["*"] for all
   status: UserStatus;
+  createdBy: string;
   createdAt: string | FirestoreTimestamp;
   updatedAt: string | FirestoreTimestamp;
   lastLoginAt?: string | FirestoreTimestamp;

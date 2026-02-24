@@ -8,93 +8,105 @@ service cloud.firestore {
     }
     
     function getOrgId() {
-      return request.auth.token.orgId;
+      return request.auth.token.orgId != null 
+        ? request.auth.token.orgId 
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId;
     }
     
     function getRole() {
-      return request.auth.token.role;
+      return request.auth.token.role != null 
+        ? request.auth.token.role 
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
+
     function isOwnerOrAdmin() {
-      return getRole() == 'owner' || getRole() == 'admin';
+      return isSignedIn() && (getRole() == 'owner' || getRole() == 'admin');
+    }
+
+    function isCreator(data) {
+      return isSignedIn() && data.createdBy == request.auth.uid;
     }
     
-    function belongsToOrg(orgId) {
-      return isSignedIn() && getOrgId() == orgId;
+    function hasOrgAccess(data) {
+      return isSignedIn() && (
+        isOwnerOrAdmin() || 
+        data.orgId == getOrgId() || 
+        isCreator(data)
+      );
     }
 
-    // Match orgs
+    // Match orgs (root collection)
     match /orgs/{orgId} {
-      function isCreator() {
-        return isSignedIn() && (
-          // Use resource data if available (reads/updates)
-          (resource != null && resource.data.createdBy == request.auth.uid) ||
-          // Use request data for creations (writes)
-          (request.resource != null && request.resource.data.createdBy == request.auth.uid) ||
-          // Fallback: check matching org document directly for sub-collection access
-          get(/databases/$(database)/documents/orgs/$(orgId)).data.createdBy == request.auth.uid
-        );
-      }
+      allow read: if isSignedIn() && (isOwnerOrAdmin() || orgId == getOrgId() || isCreator(resource.data));
+      allow write: if isOwnerOrAdmin() || (isSignedIn() && (resource == null || isCreator(resource.data)));
+      allow create: if isSignedIn();
+    }
 
-      function hasAccess() {
-        return belongsToOrg(orgId) || isCreator();
-      }
-
-      allow read: if hasAccess();
-      allow update: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+    // Match users (root collection)
+    match /users/{userId} {
+      // ORDER MATTERS: Put userId check FIRST to avoid recursion in isOwnerOrAdmin()
+      allow read: if isSignedIn() && (userId == request.auth.uid || isOwnerOrAdmin() || resource.data.orgId == getOrgId() || isCreator(resource.data));
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (userId == request.auth.uid || isOwnerOrAdmin() || isCreator(resource.data));
       allow delete: if false;
+    }
+    
+    // Match profiles
+    match /profiles/{profileId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if hasOrgAccess(resource.data) || isCreator(request.resource.data) || (isOwnerOrAdmin() || (request.resource != null && request.resource.data.orgId == getOrgId()));
+    }
+    
+    // Match assessments
+    match /assessments/{assessmentId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if hasOrgAccess(resource.data) || isCreator(request.resource.data) || (isOwnerOrAdmin() || (request.resource != null && request.resource.data.orgId == getOrgId()));
+    }
+    
+    // Match reports
+    match /reports/{reportId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if hasOrgAccess(resource.data) || isCreator(request.resource.data) || (isOwnerOrAdmin() || (request.resource != null && request.resource.data.orgId == getOrgId()));
+    }
+    
+    // Match invites (root collection)
+    match /invites/{inviteId} {
+      allow read: if isSignedIn() && (isOwnerOrAdmin() || resource.data.orgId == getOrgId() || request.auth.token.email == resource.data.email || isCreator(resource.data));
+      allow write: if isOwnerOrAdmin() || isCreator(request.resource.data);
+    }
 
-      // Match users within org
-      match /users/{userId} {
-        allow read: if hasAccess() || (isSignedIn() && request.auth.uid == userId);
-        allow create: if isSignedIn() && request.auth.uid == userId;
-        allow update: if hasAccess() && (request.auth.uid == userId || isOwnerOrAdmin());
-        allow delete: if false;
-      }
-      
-      // Match profiles, assessments, reports
-      match /profiles/{profileId} {
-        allow read, write: if hasAccess();
-      }
-      
-      match /assessments/{assessmentId} {
-        allow read, write: if hasAccess();
-      }
-      
-      match /reports/{reportId} {
-        allow read, write: if hasAccess();
-      }
-      
-      match /invites/{inviteId} {
-        allow read: if hasAccess() || (isSignedIn() && request.auth.token.email == resource.data.email);
-        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-      }
+    // Match categories
+    match /categories/{categoryId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if isOwnerOrAdmin() || isCreator(request.resource.data);
+    }
+    
+    // Match groups
+    match /groups/{groupId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if isOwnerOrAdmin() || isCreator(request.resource.data);
+    }
 
-      match /categories/{categoryId} {
-        allow read: if hasAccess();
-        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-      }
-      
-      match /groups/{groupId} {
-        allow read: if hasAccess();
-        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-      }
+    // Match programs
+    match /programs/{programId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if isOwnerOrAdmin() || isCreator(request.resource.data);
+    }
 
-      match /programs/{programId} {
-        allow read: if hasAccess();
-        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-      }
+    // Match programAssignments
+    match /programAssignments/{assignmentId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if hasOrgAccess(resource.data) || isCreator(request.resource.data);
+    }
 
-      match /programAssignments/{assignmentId} {
-        allow read: if hasAccess();
-        allow write: if hasAccess();
-      }
+    match /dashboard_groupStats/{groupId} {
+      allow read: if hasOrgAccess(resource.data);
+      allow write: if false; // Only via Cloud Functions
+    }
 
-      match /auditLogs/{logId} {
-        allow read: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
-        allow write: if false; // Only via Cloud Functions
-      }
+    match /auditLogs/{logId} {
+      allow read: if isOwnerOrAdmin();
+      allow write: if false; // Only via Cloud Functions
     }
   }
 }

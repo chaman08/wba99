@@ -46,16 +46,20 @@ const normalizeRole = (value?: string): UserRole => {
   return "clinician";
 };
 
+const CENTRAL_ORG_ID = "wba99";
+
 const mapUser = (snapshot: QueryDocumentSnapshot<DocumentData>): User => {
   const data = snapshot.data();
   return {
     uid: snapshot.id,
+    orgId: data.orgId ?? CENTRAL_ORG_ID,
     name: data.name ?? "",
     email: data.email ?? "",
     role: normalizeRole(data.role),
     isAdmin: !!data.isAdmin,
     allowedGroupIds: data.allowedGroupIds ?? [],
     status: data.status ?? "active",
+    createdBy: data.createdBy ?? snapshot.id,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     lastLoginAt: data.lastLoginAt,
@@ -208,6 +212,7 @@ export interface AppState {
   theme: ThemeMode;
   setTheme: (mode: ThemeMode) => void;
   organisation: Organisation | null;
+  organisations: Organisation[];
   users: User[];
   profiles: Profile[];
   assessments: Assessment[];
@@ -243,6 +248,7 @@ const CREATING_ORG_KEY = "wba99_creating_org";
 const LAST_ACTIVE_KEY = "wba99_last_active";
 const MAX_INACTIVE_DAYS = 14;
 
+let userUnsub: Unsubscribe | null = null;
 let unsubscribers: Unsubscribe[] = [];
 
 export const useAppStore = create<AppState>((set, get) => {
@@ -254,71 +260,101 @@ export const useAppStore = create<AppState>((set, get) => {
   const setupListeners = (user: User, orgId: string) => {
     cleanupListeners();
 
-    const handleError = (collectionName: string, _error: any) => {
-      // Log more quietly, as this is often just a propagation race condition
-      console.log(`[Sync] Waiting for full access to ${collectionName}...`);
+    const isGlobalAdmin = user.role === "owner" || user.role === "admin";
+
+    const handleError = (collectionName: string, error: any) => {
+      console.warn(`[Sync] Error syncing ${collectionName}:`, error.code || error.message);
+      if (error.code === 'permission-denied') {
+        console.error(`[Sync] Permission denied for ${collectionName}. Check roles/rules.`);
+      }
     };
 
-    // Organisation listener
+    // Organisation listener (Current context)
     const orgUnsub = onSnapshot(doc(firebaseDB, "orgs", orgId), (snapshot) => {
       set({ organisation: mapOrganisation(snapshot) });
     }, (err) => handleError("organisation", err));
     unsubscribers.push(orgUnsub);
 
-    // Users listener
-    const usersUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "users"), (snapshot) => {
+    // Global Orgs listener (for Super Admins to resolve names)
+    if (isGlobalAdmin) {
+      const allOrgsUnsub = onSnapshot(collection(firebaseDB, "orgs"), (snapshot) => {
+        set({ organisations: snapshot.docs.map(mapOrganisation) });
+      }, (err) => handleError("all_organisations", err));
+      unsubscribers.push(allOrgsUnsub);
+    }
+
+    // Users listener - Filtered by orgId for everyone
+    const usersQuery = query(collection(firebaseDB, "users"), where("orgId", "==", orgId));
+    const usersUnsub = onSnapshot(usersQuery, (snapshot) => {
       set({ users: snapshot.docs.map(mapUser) });
     }, (err) => handleError("users", err));
     unsubscribers.push(usersUnsub);
 
     // Categories listener
-    const categoriesUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "categories"), (snapshot) => {
+    const categoriesQuery = query(collection(firebaseDB, "categories"), where("orgId", "==", orgId));
+
+    const categoriesUnsub = onSnapshot(categoriesQuery, (snapshot) => {
       set({ categories: snapshot.docs.map(mapCategory) });
     }, (err) => handleError("categories", err));
     unsubscribers.push(categoriesUnsub);
 
     // Groups listener
-    const groupsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "groups"), (snapshot) => {
+    const groupsQuery = query(collection(firebaseDB, "groups"), where("orgId", "==", orgId));
+
+    const groupsUnsub = onSnapshot(groupsQuery, (snapshot) => {
       set({ groups: snapshot.docs.map(mapGroup) });
     }, (err) => handleError("groups", err));
     unsubscribers.push(groupsUnsub);
 
-    // Profiles listener
-    const profilesQuery = user.role === "owner" || user.role === "admin"
-      ? collection(firebaseDB, "orgs", orgId, "profiles")
-      : query(collection(firebaseDB, "orgs", orgId, "profiles"), where("assignedClinicianIds", "array-contains", user.uid));
+    // Profiles listener - Global for admins (within their org)
+    // Note: Previous logic for clinician assignment might still be needed if clinician isn't global admin
+    const profilesQuery = isGlobalAdmin
+      ? query(collection(firebaseDB, "profiles"), where("orgId", "==", orgId))
+      : query(collection(firebaseDB, "profiles"), where("orgId", "==", orgId), where("assignedClinicianIds", "array-contains", user.uid));
 
-    const profilesUnsub = onSnapshot(profilesQuery, (snapshot) => {
+    const profilesUnsub = onSnapshot(profilesQuery, (snapshot: any) => {
       set({ profiles: snapshot.docs.map(mapProfile) });
-    }, (err) => handleError("profiles", err));
+    }, (err: any) => handleError("profiles", err));
     unsubscribers.push(profilesUnsub);
 
     // Assessments listener
-    const assessmentsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "assessments"), (snapshot) => {
+    const assessmentsQuery = query(collection(firebaseDB, "assessments"), where("orgId", "==", orgId));
+
+    const assessmentsUnsub = onSnapshot(assessmentsQuery, (snapshot) => {
       set({ assessments: snapshot.docs.map(mapAssessment) });
     }, (err) => handleError("assessments", err));
     unsubscribers.push(assessmentsUnsub);
 
     // Reports listener
-    const reportsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "reports"), (snapshot) => {
+    const reportsQuery = query(collection(firebaseDB, "reports"), where("orgId", "==", orgId));
+
+    const reportsUnsub = onSnapshot(reportsQuery, (snapshot) => {
       set({ reports: snapshot.docs.map(mapReport) });
     }, (err) => handleError("reports", err));
     unsubscribers.push(reportsUnsub);
 
     // Programs listener
-    const programsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "programs"), (snapshot) => {
+    const programsQuery = query(collection(firebaseDB, "programs"), where("orgId", "==", orgId));
+
+    const programsUnsub = onSnapshot(programsQuery, (snapshot) => {
       set({ programs: snapshot.docs.map(mapProgram) });
     }, (err) => handleError("programs", err));
     unsubscribers.push(programsUnsub);
 
     // Program Assignments listener
-    const assignmentsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "programAssignments"), (snapshot) => {
+    const assignmentsQuery = query(collection(firebaseDB, "programAssignments"), where("orgId", "==", orgId));
+
+    const assignmentsUnsub = onSnapshot(assignmentsQuery, (snapshot) => {
       set({ programAssignments: snapshot.docs.map(mapAssignment) });
     }, (err) => handleError("programAssignments", err));
     unsubscribers.push(assignmentsUnsub);
 
     // Dashboard Stats listener
-    const statsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "dashboard_groupStats"), (snapshot) => {
+    const statsQuery = isGlobalAdmin
+      ? collection(firebaseDB, "dashboard_groupStats")
+      : query(collection(firebaseDB, "dashboard_groupStats"), where("orgId", "==", orgId));
+
+    const statsUnsub = onSnapshot(statsQuery, (snapshot) => {
       set({
         dashboardStats: snapshot.docs.map((d) => ({
           groupId: d.id,
@@ -347,52 +383,62 @@ export const useAppStore = create<AppState>((set, get) => {
   };
 
   onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+    // Clean up existing user profile listener if it exists
+    if (userUnsub) {
+      userUnsub();
+      userUnsub = null;
+    }
+
     if (firebaseUser) {
       const isInactive = checkInactivity();
       if (isInactive) {
         set({ isLoadingAuth: false });
         return;
       }
+      // 1. Setup real-time listener for the user doc
+      userUnsub = onSnapshot(doc(firebaseDB, "users", firebaseUser.uid), async (snapshot) => {
+        if (snapshot.exists()) {
+          const user = mapUser(snapshot as any);
+          const currentUser = get().authUser;
 
-      try {
-        // Step 2 — Force token refresh once to get custom claims
-        const tokenResult = await firebaseUser.getIdTokenResult(true);
-        const orgId = tokenResult.claims.orgId as string;
+          const roleChanged = currentUser && currentUser.role !== user.role;
+          const orgChanged = currentUser && currentUser.orgId !== user.orgId;
 
-        if (!orgId) {
-          // RACE CONDITION FIX: If we are currently creating an org, don't show an error yet.
-          // The createOrganisation function is polling for these claims.
-          const creatingOrgTs = localStorage.getItem(CREATING_ORG_KEY);
-          const isJustCreating = creatingOrgTs && (Date.now() - parseInt(creatingOrgTs)) < 5 * 60 * 1000; // 5 min window
+          let finalOrgId = user.orgId || CENTRAL_ORG_ID;
 
-          // Safety: If the account was created less than 2 minutes ago, also suppress the error.
-          const creationTime = firebaseUser.metadata.creationTime ? new Date(firebaseUser.metadata.creationTime).getTime() : 0;
-          const isNewAccount = (Date.now() - creationTime) < 2 * 60 * 1000;
+          // If role changed, force refresh token to sync custom claims
+          if (roleChanged || !currentUser) {
+            console.log(`[Auth] Role: ${user.role}, Org: ${user.orgId}. Syncing session...`);
+            await firebaseUser.getIdToken(true);
+            const tokenResult = await firebaseUser.getIdTokenResult(true);
+            finalOrgId = (tokenResult.claims.orgId as string) || user.orgId || CENTRAL_ORG_ID;
+          }
 
-          if (get().isCreatingOrg || isJustCreating || isNewAccount) {
-            console.log("[Auth] skipping 'not configured' error as account is potentially still being provisioned...");
-            set({ isLoadingAuth: false, isProvisioning: true });
+          set({
+            authUser: user,
+            isLoadingAuth: false,
+            authError: null,
+            isProvisioning: false
+          });
+
+          // Setup/Re-setup data listeners if identity context changed or first time
+          if (roleChanged || orgChanged || unsubscribers.length === 0) {
+            setupListeners(user, finalOrgId);
+          }
+        } else {
+          const isCreating = get().isCreatingOrg || localStorage.getItem(CREATING_ORG_KEY);
+          if (isCreating) {
+            console.log("[Auth] User doc not found yet, but isCreatingOrg is true.");
             return;
           }
-          set({ authUser: null, isLoadingAuth: false, isProvisioning: false, authError: "Your account is not configured. Contact admin." });
-          return;
+          set({ authUser: null, isLoadingAuth: false, authError: "User profile not found." });
+          cleanupListeners();
         }
+      }, (error) => {
+        console.error("User doc sync failed", error);
+        set({ authError: "Failed to sync user profile." });
+      });
 
-        set({ isProvisioning: false }); // Claims found, no longer provisioning
-
-        // Step 3 — Load user doc
-        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const user = mapUser(userDoc as any);
-          set({ authUser: user, isLoadingAuth: false, authError: null });
-          setupListeners(user, orgId);
-        } else {
-          set({ authUser: null, isLoadingAuth: false, authError: "User profile not found in organisation." });
-        }
-      } catch (error) {
-        console.error("Failed to rehydrate auth", error);
-        set({ authUser: null, isLoadingAuth: false, authError: "Failed to load profile." });
-      }
     } else {
       set({ authUser: null, isLoadingAuth: false, isCreatingOrg: false, isProvisioning: false, authError: null });
       cleanupListeners();
@@ -409,6 +455,7 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ theme: mode });
     },
     organisation: null,
+    organisations: [],
     users: [],
     profiles: [],
     assessments: [],
@@ -430,14 +477,9 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Force refresh to get latest claims
         const idTokenResult = await credential.user.getIdTokenResult(true);
-        const orgId = idTokenResult.claims.orgId as string;
+        const orgId = (idTokenResult.claims.orgId as string) || CENTRAL_ORG_ID;
 
-        if (!orgId) {
-          set({ authError: "Missing organisation configuration.", isLoadingAuth: false });
-          return false;
-        }
-
-        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", credential.user.uid));
+        const userDoc = await getDoc(doc(firebaseDB, "users", credential.user.uid));
         if (!userDoc.exists()) {
           set({ authError: "User profile not found in organisation.", isLoadingAuth: false });
           return false;
@@ -465,6 +507,7 @@ export const useAppStore = create<AppState>((set, get) => {
       set({
         authUser: null,
         organisation: null,
+        organisations: [],
         profiles: [],
         assessments: [],
         reports: [],
@@ -491,12 +534,14 @@ export const useAppStore = create<AppState>((set, get) => {
         console.log("Creating Auth user...");
         const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         const uid = credential.user.uid;
+        // Revert to unique orgId for new clinics
         const orgId = `org-${Math.random().toString(36).substring(2, 9)}`;
-        console.log(`Auth user created: ${uid}. Generated orgId: ${orgId}`);
+        console.log(`Auth user created: ${uid}. New orgId generated: ${orgId}`);
 
         // 2. Create Organisation doc
         console.log("Writing Organisation doc to Firestore...");
         await setDoc(doc(firebaseDB, "orgs", orgId), {
+          id: orgId,
           name: orgName,
           phone: "",
           contactEmail: email,
@@ -511,76 +556,50 @@ export const useAppStore = create<AppState>((set, get) => {
         });
         console.log("Organisation doc written successfully.");
 
-        // 3. Create User doc
-        console.log("Writing User doc to Firestore...");
-        await setDoc(doc(firebaseDB, "orgs", orgId, "users", uid), {
+        // 3. Create User doc in root collection
+        console.log("Writing User doc to Firestore root...");
+        await setDoc(doc(firebaseDB, "users", uid), {
           uid,
+          orgId,
           name,
           email,
           role: "clinician",
           isAdmin: false,
           status: "active",
           allowedGroupIds: ["*"],
+          createdBy: uid, // Crucial for bootstrap bypass
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
-        console.log("User doc written successfully.");
+        console.log("User doc written successfully to root.");
 
-        // Force a token refresh to get custom claims (set by background trigger)
-        console.log("Waiting for backend trigger to set custom claims...");
-        let attempts = 0;
-        let hasClaim = false;
-        const MAX_POLLING_ATTEMPTS = 20; // Increased from 15
-        const POLLING_INTERVAL_MS = 1500; // Decreased from 2000 for better responsiveness
+        // 4. Finalize state immediately (No polling needed)
+        console.log("Finalizing workspace state...");
+        const user: User = {
+          uid,
+          orgId,
+          name,
+          email,
+          role: "clinician",
+          isAdmin: false,
+          status: "active",
+          allowedGroupIds: ["*"],
+          createdBy: uid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
 
-        while (attempts < MAX_POLLING_ATTEMPTS && !hasClaim) {
-          attempts++;
-          console.log(`Polling for claims (attempt ${attempts}/${MAX_POLLING_ATTEMPTS})...`);
+        set({
+          authUser: user,
+          isLoadingAuth: false,
+          isCreatingOrg: false,
+          isProvisioning: false,
+          authError: null
+        });
 
-          await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-
-          try {
-            // RELOAD is critical to pick up backend changes in some environments
-            await credential.user.reload();
-            // Force refresh token (true) to ensure we get the latest claims
-            const idTokenResult = await credential.user.getIdTokenResult(true);
-
-            if (idTokenResult.claims.orgId) {
-              console.log("Success! Custom claims detected in token:", idTokenResult.claims.orgId);
-              hasClaim = true;
-            } else {
-              console.warn(`Claims not ready yet (attempt ${attempts}), retrying...`);
-            }
-          } catch (e) {
-            console.warn("Error during polling, retrying...", e);
-          }
-        }
-
-        if (!hasClaim) {
-          console.warn("TIMEOUT: Custom claims delayed. Attempting best-effort workspace entry...");
-          // We don't throw yet, because the owner-bypass in Firestore rules might allow us to work 
-          // while the background trigger catches up.
-        }
-
-        // Re-run rehydration logic
-        console.log("Rehydrating app state...");
-        // Use the generated orgId since we might not have it in claims yet
-        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", uid));
-        if (userDoc.exists()) {
-          const user = mapUser(userDoc as any);
-          set({ authUser: user, isLoadingAuth: false, isProvisioning: false });
-          setCreating(false);
-          setupListeners(user, orgId);
-          console.log("Signup flow completed with best-effort rehydration.");
-        } else {
-          console.error("User doc not found after creation during rehydration.");
-          set({ isLoadingAuth: false });
-          setCreating(false);
-          if (!hasClaim) {
-            throw new Error("Your workspace is taking a moment to initialize. Please wait 10 seconds and refresh the page.");
-          }
-          throw new Error("We encountered an issue finalizing your workspace. Please sign in again.");
-        }
+        setCreating(false);
+        setupListeners(user, orgId);
+        console.log("Signup flow completed instantly.");
       } catch (error: any) {
         console.error("CRITICAL AUTH FAILURE:", error);
         set({ authError: error.message, isLoadingAuth: false });
@@ -608,7 +627,7 @@ export const useAppStore = create<AppState>((set, get) => {
         await acceptFunc({ inviteId, orgId, name, password });
 
         // Re-login to get session
-        const emailDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "invites", inviteId));
+        const emailDoc = await getDoc(doc(firebaseDB, "invites", inviteId));
         const email = emailDoc.data()?.email;
         if (email) {
           await get().login(email, password);
@@ -645,7 +664,11 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       try {
-        await setDoc(doc(firebaseDB, "orgs", orgId, "profiles", newProfile.id), newProfile);
+        await setDoc(doc(firebaseDB, "profiles", newProfile.id), {
+          ...newProfile,
+          orgId,
+          createdBy: authUser.uid // Redundant but explicit for rules
+        });
       } catch (error) {
         console.error("Failed to persist profile", error);
         throw error;
@@ -668,7 +691,11 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       try {
-        await setDoc(doc(firebaseDB, "orgs", orgId, "assessments", newAssessment.id), newAssessment);
+        await setDoc(doc(firebaseDB, "assessments", newAssessment.id), {
+          ...newAssessment,
+          orgId,
+          createdBy: authUser.uid // Redundant but explicit for rules
+        });
       } catch (error) {
         console.error("Failed to persist assessment", error);
         throw error;
@@ -682,7 +709,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const cleanPatch = { ...patch, updatedAt };
 
       try {
-        await updateDoc(doc(firebaseDB, "orgs", orgId, "assessments", assessmentId), cleanPatch as any);
+        await updateDoc(doc(firebaseDB, "assessments", assessmentId), cleanPatch as any);
       } catch (error) {
         console.error("Failed to update assessment", error);
         throw error;
@@ -693,7 +720,10 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!orgId) throw new Error("Organisation required");
 
       try {
-        await setDoc(doc(firebaseDB, "orgs", orgId, "reports", report.id), report);
+        await setDoc(doc(firebaseDB, "reports", report.id), {
+          ...report,
+          orgId
+        });
       } catch (error) {
         console.error("Failed to save report", error);
         throw error;
@@ -704,7 +734,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!orgId) throw new Error("Organisation required");
 
       try {
-        await updateDoc(doc(firebaseDB, "orgs", orgId, "users", userId), { role });
+        const isAdmin = role === 'admin' || role === 'owner';
+        await updateDoc(doc(firebaseDB, "users", userId), { role, isAdmin });
       } catch (error) {
         console.error("Failed to update user role", error);
         throw error;

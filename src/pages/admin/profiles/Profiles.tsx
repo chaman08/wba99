@@ -1,67 +1,81 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Upload, Filter } from "lucide-react";
 import { DataTable } from "../../../components/common/DataTable";
-
-interface Profile {
-    id: string;
-    name: string;
-    email: string;
-    dob: string;
-    weight: string;
-    height: string;
-    group: string;
-    clinician: string;
-}
-
-const mockProfiles: Profile[] = [
-    { id: "1", name: "John Doe", email: "john@example.com", dob: "1990-05-15", weight: "75kg", height: "180cm", group: "Performance A", clinician: "Dr. Smith" },
-    { id: "2", name: "Jane Smith", email: "jane@example.com", dob: "1992-08-20", weight: "62kg", height: "165cm", group: "Rehab Alpha", clinician: "Dr. Jones" },
-    { id: "3", name: "Mike Ross", email: "mike@example.com", dob: "1988-12-10", weight: "85kg", height: "188cm", group: "Performance A", clinician: "Dr. Smith" },
-    { id: "4", name: "Sarah Connor", email: "sarah@example.com", dob: "1985-03-25", weight: "58kg", height: "160cm", group: "Clinical Alpha", clinician: "Dr. Brown" },
-    { id: "5", name: "Harvey Specter", email: "harvey@example.com", dob: "1980-01-01", weight: "80kg", height: "185cm", group: "Executive", clinician: "Dr. Smith" },
-];
+import { useAppStore } from "../../../store/useAppStore";
+import type { Profile } from "../../../types";
 
 export const Profiles = () => {
     const navigate = useNavigate();
+    const { profiles, groups, users } = useAppStore();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedGroup, setSelectedGroup] = useState("all");
 
     const columns = [
         {
-            key: "name" as const,
+            key: "fullName" as const,
             header: "Profile Name",
             sortable: true,
             render: (p: Profile) => (
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-medium text-xs">
-                        {p.name.split(" ").map(n => n[0]).join("")}
+                        {p.fullName.split(" ").map(n => n[0]).join("")}
                     </div>
-                    <span className="font-medium text-[#0F172A]">{p.name}</span>
+                    <span className="font-medium text-[#0F172A]">{p.fullName}</span>
                 </div>
             )
         },
         { key: "email" as const, header: "Email", sortable: true },
-        { key: "dob" as const, header: "Date of Birth", sortable: true },
-        { key: "weight" as const, header: "Weight" },
-        { key: "height" as const, header: "Height" },
         {
-            key: "group" as const,
-            header: "Assigned Group",
-            render: (p: Profile) => (
-                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">
-                    {p.group}
-                </span>
-            )
+            key: "dob" as const,
+            header: "Date of Birth",
+            sortable: true,
+            render: (p: Profile) => {
+                if (!p.dob) return "-";
+                if (typeof p.dob === 'string') return p.dob;
+                return new Date(p.dob.seconds * 1000).toLocaleDateString();
+            }
         },
-        { key: "clinician" as const, header: "Clinician" },
+        {
+            key: "weightKg" as const,
+            header: "Weight",
+            render: (p: Profile) => p.weightKg ? `${p.weightKg}kg` : "-"
+        },
+        {
+            key: "heightCm" as const,
+            header: "Height",
+            render: (p: Profile) => p.heightCm ? `${p.heightCm}cm` : "-"
+        },
+        {
+            key: "groupId" as const,
+            header: "Assigned Group",
+            render: (p: Profile) => {
+                const group = groups.find(g => g.id === p.groupId);
+                return (
+                    <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">
+                        {group?.name || "Unassigned"}
+                    </span>
+                );
+            }
+        },
+        {
+            key: "assignedClinicianIds" as const,
+            header: "Clinician",
+            render: (p: Profile) => {
+                if (!p.assignedClinicianIds?.length) return "-";
+                const clinician = users.find(u => u.uid === p.assignedClinicianIds[0]);
+                return clinician?.name || "-";
+            }
+        },
         { key: "actions" as const, header: "" }
     ];
 
-    const filteredProfiles = mockProfiles.filter(p =>
-        (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-        (selectedGroup === "all" || p.group === selectedGroup)
-    );
+    const filteredProfiles = useMemo(() => {
+        return profiles.filter(p =>
+            (p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
+            (selectedGroup === "all" || p.groupId === selectedGroup)
+        );
+    }, [profiles, searchTerm, selectedGroup]);
 
     return (
         <div className="space-y-6">
@@ -102,10 +116,9 @@ export const Profiles = () => {
                             onChange={(e) => setSelectedGroup(e.target.value)}
                         >
                             <option value="all">All Groups</option>
-                            <option value="Performance A">Performance A</option>
-                            <option value="Rehab Alpha">Rehab Alpha</option>
-                            <option value="Clinical Alpha">Clinical Alpha</option>
-                            <option value="Executive">Executive</option>
+                            {groups.map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
                         </select>
                     </div>
                 </div>

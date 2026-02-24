@@ -33,10 +33,10 @@ const strengthScore = (value: string) => {
 
 export const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const { register, handleSubmit, watch, reset, formState } = useForm<SignupForm>({
+  const { register, handleSubmit, watch, formState } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
   });
-  const { createOrganisation, isLoadingAuth, isProvisioning, authError } = useAppStore();
+  const { createOrganisation, authUser, isLoadingAuth, isProvisioning, authError } = useAppStore();
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const password = watch("password");
@@ -48,13 +48,18 @@ export const SignupPage = () => {
     }
   }, [isProvisioning, navigate]);
 
+  useEffect(() => {
+    if (authUser) {
+      const target = authUser.isAdmin ? "/admin/home" : "/app/dashboard";
+      navigate(target);
+    }
+  }, [authUser, navigate]);
+
   const onSubmit = async (values: SignupForm) => {
     try {
       await createOrganisation(values.orgName, values.name, values.email, values.password);
       setIsSaved(true);
-      setTimeout(() => {
-        reset();
-      }, 2000);
+      // Let the user see the "Ready" message for a split second, then the useEffect will kick in
     } catch (err) {
       console.error(err);
     }

@@ -264,6 +264,16 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
                   <span className="font-medium">{item.label}</span>
                 </NavLink>
               ))}
+
+              {user?.isAdmin && (role === "clinician" || role === "assistant") && (
+                <NavLink
+                  to="/admin/home"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-text-muted hover:bg-white/5 hover:text-text"
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  <span className="font-medium">Admin Panel</span>
+                </NavLink>
+              )}
             </nav>
 
             <div className="p-6 border-t border-white/10">

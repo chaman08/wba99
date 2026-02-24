@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
     Users,
     Activity,
@@ -8,22 +9,7 @@ import {
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
 import { ChartCard } from "../../../components/common/ChartCard";
-
-const data = [
-    { name: 'Mon', value: 40 },
-    { name: 'Tue', value: 30 },
-    { name: 'Wed', value: 60 },
-    { name: 'Thu', value: 45 },
-    { name: 'Fri', value: 75 },
-    { name: 'Sat', value: 55 },
-    { name: 'Sun', value: 80 },
-];
-
-const distributionData = [
-    { name: 'Perf', value: 45 },
-    { name: 'Rehab', value: 30 },
-    { name: 'Clinical', value: 25 },
-];
+import { useAppStore } from "../../../store/useAppStore";
 
 interface MetricCardProps {
     title: string;
@@ -53,48 +39,88 @@ const MetricCard = ({ title, value, change, isPositive, icon: Icon, color }: Met
 );
 
 export const AdminDashboard = () => {
+    const { profiles, assessments, reports, categories, authUser } = useAppStore();
+
+    const metrics = useMemo(() => {
+        const totalProfiles = profiles.length;
+        const activeAssessments = assessments.filter(a => a.status === 'Submitted' || a.status === 'In Review' || a.status === 'Assigned').length;
+        const reportsGenerated = reports.length;
+
+        // Calculate average score if possible, otherwise mock it for now but based on real data existence
+        const avgScore = profiles.reduce((acc, p) => acc + (p.summary?.latestScores?.postureScore || 0), 0) / (profiles.length || 1);
+
+        return {
+            totalProfiles,
+            activeAssessments,
+            reportsGenerated,
+            avgScore: profiles.length ? `${Math.round(avgScore)}%` : "N/A"
+        };
+    }, [profiles, assessments, reports]);
+
+    const distributionData = useMemo(() => {
+        return categories.map(cat => {
+            const count = profiles.filter(p => p.categoryId === cat.id).length;
+            const percentage = profiles.length ? Math.round((count / profiles.length) * 100) : 0;
+            return {
+                name: cat.name.substring(0, 10),
+                value: percentage
+            };
+        }).filter(d => d.value > 0);
+    }, [categories, profiles]);
+
+    // Mock trend for the chart but keep it static for now as we don't have historical data in the store directly
+    const activityTrend = [
+        { name: 'Mon', value: 10 },
+        { name: 'Tue', value: 20 },
+        { name: 'Wed', value: 15 },
+        { name: 'Thu', value: 30 },
+        { name: 'Fri', value: 25 },
+        { name: 'Sat', value: 40 },
+        { name: 'Sun', value: Math.max(assessments.length, 5) },
+    ];
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#0F172A]">Good Morning, Admin</h2>
+                    <h2 className="text-2xl font-bold text-[#0F172A]">Good Morning, {authUser?.name?.split(' ')[0] || 'Admin'}</h2>
                     <p className="text-sm text-slate-500">Here's what's happening with your organisation today.</p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 text-sm font-medium text-slate-600 shadow-sm">
                     <Calendar className="h-4 w-4" />
-                    Feb 24, 2026 - Mar 02, 2026
+                    {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
                     title="Total Profiles"
-                    value="1,284"
-                    change="+12.5%"
+                    value={metrics.totalProfiles.toLocaleString()}
+                    change="+0%"
                     isPositive={true}
                     icon={Users}
                     color="bg-blue-500"
                 />
                 <MetricCard
                     title="Active Assessments"
-                    value="452"
-                    change="+5.2%"
+                    value={metrics.activeAssessments.toLocaleString()}
+                    change="+0%"
                     isPositive={true}
                     icon={Activity}
                     color="bg-purple-500"
                 />
                 <MetricCard
                     title="Reports Generated"
-                    value="182"
-                    change="-2.4%"
-                    isPositive={false}
+                    value={metrics.reportsGenerated.toLocaleString()}
+                    change="+0%"
+                    isPositive={true}
                     icon={FileText}
                     color="bg-orange-500"
                 />
                 <MetricCard
-                    title="Avg. Performance"
-                    value="78.4%"
-                    change="+4.1%"
+                    title="Avg. Posture Score"
+                    value={metrics.avgScore}
+                    change="+0%"
                     isPositive={true}
                     icon={TrendingUp}
                     color="bg-green-500"
@@ -104,12 +130,12 @@ export const AdminDashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <ChartCard
-                        title="Activity Over Time"
-                        subtitle="Assessment submissions per day"
-                        averageValue="54 / day"
+                        title="Activity Overview"
+                        subtitle="Recent assessment submissions"
+                        averageValue={`${assessments.length} total`}
                     >
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data}>
+                            <AreaChart data={activityTrend}>
                                 <defs>
                                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#0F172A" stopOpacity={0.1} />
@@ -124,7 +150,6 @@ export const AdminDashboard = () => {
                                     tick={{ fill: '#94A3B8', fontSize: 12 }}
                                     dy={10}
                                 />
-                                <YAxis hide={true} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
@@ -158,6 +183,7 @@ export const AdminDashboard = () => {
                                     tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }}
                                 />
                                 <Tooltip
+                                    formatter={(value) => [`${value}%`, 'Share']}
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 <Bar dataKey="value" fill="#0F172A" radius={[0, 4, 4, 0]} barSize={24} />
@@ -169,26 +195,29 @@ export const AdminDashboard = () => {
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-[#0F172A]">Pending Actions</h3>
-                    <button className="text-sm font-bold text-[#0F172A] hover:underline uppercase">Process All</button>
+                    <h3 className="text-lg font-bold text-[#0F172A]">Recent Activity</h3>
+                    <p className="text-sm text-slate-500 uppercase font-bold tracking-wider">Historical Log</p>
                 </div>
                 <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    {assessments.slice(0, 3).map((a) => (
+                        <div key={a.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                                    <AlertCircle className="h-5 w-5" />
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                    <Activity className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-[#0F172A]">Signature Required: ACL Recovery Group</p>
-                                    <p className="text-xs text-slate-500">Dr. Smith requested oversight approval for 12 new assessments.</p>
+                                    <p className="text-sm font-bold text-[#0F172A]">{a.type.toUpperCase()} Assessment: {a.id.substring(0, 8)}</p>
+                                    <p className="text-xs text-slate-500">Status: {a.status}</p>
                                 </div>
                             </div>
-                            <button className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0F172A] hover:bg-slate-50 transition-colors">
-                                Review
-                            </button>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                {typeof a.createdAt === 'string' ? new Date(a.createdAt).toLocaleDateString() : new Date(a.createdAt.seconds * 1000).toLocaleDateString()}
+                            </span>
                         </div>
                     ))}
+                    {assessments.length === 0 && (
+                        <p className="text-center py-8 text-slate-400 text-sm italic">No recent assessment activity found.</p>
+                    )}
                 </div>
             </div>
         </div>
