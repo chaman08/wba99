@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getOrgId() {
+      return request.auth.token.orgId;
+    }
+    
+    function getRole() {
+      return request.auth.token.role;
+    }
+    
+    function isOwnerOrAdmin() {
+      return getRole() == 'owner' || getRole() == 'admin';
+    }
+    
+    function belongsToOrg(orgId) {
+      return isSignedIn() && getOrgId() == orgId;
+    }
+
+    // Match orgs
+    match /orgs/{orgId} {
+      function isCreator() {
+        return isSignedIn() && (
+          // Use resource data if available (reads/updates)
+          (resource != null && resource.data.createdBy == request.auth.uid) ||
+          // Use request data for creations (writes)
+          (request.resource != null && request.resource.data.createdBy == request.auth.uid) ||
+          // Fallback: check matching org document directly for sub-collection access
+          get(/databases/$(database)/documents/orgs/$(orgId)).data.createdBy == request.auth.uid
+        );
+      }
+
+      function hasAccess() {
+        return belongsToOrg(orgId) || isCreator();
+      }
+
+      allow read: if hasAccess();
+      allow update: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow delete: if false;
+
+      // Match users within org
+      match /users/{userId} {
+        allow read: if hasAccess() || (isSignedIn() && request.auth.uid == userId);
+        allow create: if isSignedIn() && request.auth.uid == userId;
+        allow update: if hasAccess() && (request.auth.uid == userId || isOwnerOrAdmin());
+        allow delete: if false;
+      }
+      
+      // Match profiles, assessments, reports
+      match /profiles/{profileId} {
+        allow read, write: if hasAccess();
+      }
+      
+      match /assessments/{assessmentId} {
+        allow read, write: if hasAccess();
+      }
+      
+      match /reports/{reportId} {
+        allow read, write: if hasAccess();
+      }
+      
+      match /invites/{inviteId} {
+        allow read: if hasAccess() || (isSignedIn() && request.auth.token.email == resource.data.email);
+        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+      }
+
+      match /categories/{categoryId} {
+        allow read: if hasAccess();
+        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+      }
+      
+      match /groups/{groupId} {
+        allow read: if hasAccess();
+        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+      }
+
+      match /programs/{programId} {
+        allow read: if hasAccess();
+        allow write: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+      }
+
+      match /programAssignments/{assignmentId} {
+        allow read: if hasAccess();
+        allow write: if hasAccess();
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if hasAccess() && (belongsToOrg(orgId) ? isOwnerOrAdmin() : true);
+        allow write: if false; // Only via Cloud Functions
+      }
+    }
+  }
+}

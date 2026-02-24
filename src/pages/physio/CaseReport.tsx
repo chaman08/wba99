@@ -5,20 +5,23 @@ import { FileDown, ArrowLeft, CheckCircle, Clock } from "lucide-react";
 export const CaseReport = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
-  const selected = useAppStore((state) => state.cases.find((item) => item.id === caseId));
-  const existingReport = useAppStore((state) => state.reports.find((report) => report.caseId === caseId));
+  const assessments = useAppStore((state) => state.assessments);
+  const reports = useAppStore((state) => state.reports);
+
+  const selected = assessments.find((item) => item.id === caseId);
+  const existingReport = reports.find((report) => report.assessmentIds.includes(caseId || ""));
 
   if (!selected) {
     return (
       <div className="rounded-3xl bg-surface/70 p-8 text-center border border-white/10">
-        <p className="text-text-muted">Case profile missing.</p>
-        <button onClick={() => navigate("/dashboard")} className="mt-4 text-sm text-primary underline">Back to dashboard</button>
+        <p className="text-text-muted">Analysis profile missing.</p>
+        <button onClick={() => navigate("/app/activity")} className="mt-4 text-sm text-primary underline">Back to activity</button>
       </div>
     );
   }
 
-  const timeline = ["Submitted", "Assigned", "In Review", "Report Ready"];
-  const currentIndex = Math.max(0, timeline.indexOf(selected.status));
+  const timeline = ["draft", "final"];
+  const currentIndex = timeline.indexOf(selected.status);
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
@@ -34,23 +37,25 @@ export const CaseReport = () => {
             </button>
             <div>
               <p className="text-[10px] uppercase tracking-[0.4em] text-text-muted">{selected.id}</p>
-              <h1 className="text-2xl font-semibold text-text">{selected.title}</h1>
+              <h1 className="text-2xl font-semibold text-text uppercase italic">{selected.type} Analysis</h1>
             </div>
           </div>
-          <button className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:scale-105 shadow-lg shadow-primary/20">
-            <FileDown className="w-4 h-4" />
-            Download PDF
-          </button>
+          {existingReport && (
+            <button className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:scale-105 shadow-lg shadow-primary/20">
+              <FileDown className="w-4 h-4" />
+              Download PDF
+            </button>
+          )}
         </div>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-6 border-t border-white/5 pt-6">
           <div className="flex items-center gap-3">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${selected.status === 'Report Ready' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}`}>
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${selected.status === 'final' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}`}>
               <CheckCircle className="w-5 h-5" />
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-text-muted">Status</p>
-              <p className="text-sm font-semibold">{selected.status}</p>
+              <p className="text-sm font-semibold uppercase">{selected.status === 'final' ? 'Report Ready' : selected.status}</p>
             </div>
           </div>
           <div className="h-10 w-px bg-white/10 hidden sm:block" />
@@ -60,7 +65,9 @@ export const CaseReport = () => {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-text-muted">Updated</p>
-              <p className="text-sm font-semibold">{new Date(selected.updatedAt).toLocaleDateString()}</p>
+              <p className="text-sm font-semibold">
+                {new Date(typeof selected.updatedAt === 'string' ? selected.updatedAt : selected.updatedAt.seconds * 1000).toLocaleDateString()}
+              </p>
             </div>
           </div>
         </div>
@@ -77,7 +84,7 @@ export const CaseReport = () => {
               </div>
               <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 ${idx <= currentIndex ? (idx === 3 ? 'bg-success' : 'bg-primary') : 'bg-transparent'}`}
+                  className={`h-full transition-all duration-500 ${idx <= currentIndex ? (idx === 1 ? 'bg-success' : 'bg-primary') : 'bg-transparent'}`}
                   style={{ width: idx <= currentIndex ? '100%' : '0%' }}
                 />
               </div>
@@ -90,23 +97,26 @@ export const CaseReport = () => {
       <section className="space-y-6">
         {!existingReport ? (
           <div className="rounded-3xl bg-surface/70 p-12 text-center border border-white/5 border-dashed">
-            <p className="text-text-muted">This report is still being processed by our clinical experts.</p>
+            <p className="text-text-muted">This analysis is still being reviewed by our clinical experts.</p>
           </div>
         ) : (
-          Object.entries(existingReport.sections).map(([key, content]) => (
-            <article key={key} className="rounded-3xl bg-surface/70 p-8 shadow-soft-light border border-white/5 space-y-4">
-              <h3 className="text-xs uppercase tracking-[0.4em] text-primary font-bold">{key}</h3>
-              <div className="prose prose-invert max-w-none">
-                <p className="text-text leading-relaxed whitespace-pre-wrap">{content || "No data provided for this section."}</p>
-              </div>
-            </article>
-          ))
+          <article className="rounded-3xl bg-surface/70 p-8 shadow-soft-light border border-white/5 space-y-6">
+            <div>
+              <h3 className="text-xs uppercase tracking-[0.4em] text-primary font-bold mb-2">Summary Findings</h3>
+              <p className="text-text leading-relaxed whitespace-pre-wrap">{existingReport.summaryText || "No summary provided."}</p>
+            </div>
+            <div className="h-px bg-white/5" />
+            <div>
+              <h3 className="text-xs uppercase tracking-[0.4em] text-secondary font-bold mb-2">Recommendations</h3>
+              <p className="text-text leading-relaxed whitespace-pre-wrap">{existingReport.recommendations || "No recommendations provided."}</p>
+            </div>
+          </article>
         )}
       </section>
 
       {/* Footer Info */}
       <div className="text-center text-text-muted text-xs pt-4">
-        <p>This is a generated report based on clinical assessment data provided by the physiotherapist.</p>
+        <p>This is a generated report based on clinical assessment data provided by the clinician.</p>
         <p className="mt-1">© 2026 WBA99 Clinical Platform</p>
       </div>
     </div>

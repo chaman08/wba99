@@ -1,0 +1,47 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "assessments",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "profileId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "reports",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "profileId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "profiles",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "assignedClinicianIds",
+                    "arrayConfig": "CONTAINS"
+                },
+                {
+                    "fieldPath": "fullName",
+                    "order": "ASCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

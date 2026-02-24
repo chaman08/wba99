@@ -13,12 +13,14 @@ import {
   User,
   LogOut,
   Settings,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck
 } from "lucide-react";
 import { ThemeToggle } from "../buttons/ThemeToggle";
 import { useAppStore } from "../../store/useAppStore";
 import { BottomNav } from "./BottomNav";
-import type { Role } from "../../types";
+
+type Role = "admin" | "physio";
 
 interface NavItem {
   label: string;
@@ -115,6 +117,21 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
               )}
             </NavLink>
           ))}
+
+          {user?.isAdmin && role === "physio" && (
+            <NavLink
+              to="/admin/home"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-text-muted hover:bg-white/5 hover:text-text"
+            >
+              <ShieldCheck className={`h-5 w-5 shrink-0 ${isSidebarCollapsed ? "mx-auto" : ""}`} />
+              {!isSidebarCollapsed && <span className="font-medium whitespace-nowrap">Admin Panel</span>}
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-surface border border-white/10 rounded-md text-xs font-medium opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                  Admin Panel
+                </div>
+              )}
+            </NavLink>
+          )}
         </nav>
 
         <div className="p-4 border-t border-white/10">

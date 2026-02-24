@@ -1,8 +1,20 @@
 import { create } from "zustand";
 import { applyTheme, getStoredTheme, THEME_KEY } from "../lib/theme";
 import type { ThemeMode } from "../lib/theme";
-import type { Case, Patient, Report, Role, User } from "../types";
-import { firebaseAuth, firebaseDB } from "../lib/firebase";
+import type {
+  Assessment,
+  Profile,
+  Report,
+  UserRole,
+  User,
+  Organisation,
+  Category,
+  Group,
+  Program,
+  ProgramAssignment,
+  DashboardGroupStats,
+} from "../types";
+import { firebaseAuth, firebaseDB, firebaseFunctions, firebaseStorage } from "../lib/firebase";
 import {
   collection,
   doc,
@@ -11,7 +23,6 @@ import {
   onSnapshot,
   query,
   setDoc,
-  Timestamp,
   updateDoc,
   where,
   type DocumentData,
@@ -24,112 +35,208 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const parseTimestampString = (value?: string | Timestamp, fallback = ""): string => {
-  if (value instanceof Timestamp) {
-    return value.toDate().toISOString();
+
+const normalizeRole = (value?: string): UserRole => {
+  if (["owner", "admin", "clinician", "assistant", "readOnly"].includes(value as any)) {
+    return value as UserRole;
   }
-  if (typeof value === "string") {
-    return value;
-  }
-  return fallback;
+  return "clinician";
 };
 
-const ensureMedia = (media?: Partial<Case["media"]>): Case["media"] => ({
-  posture: Array.isArray(media?.posture) ? (media?.posture as Case["media"]["posture"]) : [],
-  ground: Array.isArray(media?.ground) ? (media?.ground as Case["media"]["ground"]) : [],
-  treadmill: Array.isArray(media?.treadmill) ? (media?.treadmill as Case["media"]["treadmill"]) : [],
-});
-
-const normalizeRole = (value?: string): Role => {
-  if (value === "admin" || value === "expert") return "admin";
-  return "physio";
-};
-
-const mapUserData = (data: Partial<User>, id: string): User => ({
-  id,
-  name: data.name ?? "",
-  email: data.email ?? "",
-  role: normalizeRole(data.role),
-  password: data.password ?? "",
-  avatar: data.avatar,
-});
-
-const mapUser = (snapshot: QueryDocumentSnapshot<DocumentData>): User => mapUserData(snapshot.data() as Partial<User>, snapshot.id);
-
-const mapUserFromDoc = (snapshot: DocumentSnapshot<DocumentData>): User => {
-  const data = snapshot.data() as Partial<User> | undefined;
-  return mapUserData(data ?? {}, snapshot.id);
-};
-
-const mapPatient = (snapshot: QueryDocumentSnapshot<DocumentData>): Patient => {
-  const data = snapshot.data() as Partial<Patient>;
+const mapUser = (snapshot: QueryDocumentSnapshot<DocumentData>): User => {
+  const data = snapshot.data();
   return {
-    id: (data.id as string) ?? snapshot.id,
+    uid: snapshot.id,
     name: data.name ?? "",
-    phone: data.phone ?? "",
-    age: Number(data.age ?? 0),
-    gender: data.gender,
-    height: data.height,
-    weight: data.weight,
-    complaint: data.complaint,
-    notes: data.notes,
-    lastSession: parseTimestampString(data.lastSession as string | Timestamp, ""),
-    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
-    physiotherapistId: data.physiotherapistId ?? "",
+    email: data.email ?? "",
+    role: normalizeRole(data.role),
+    isAdmin: !!data.isAdmin,
+    allowedGroupIds: data.allowedGroupIds ?? [],
+    status: data.status ?? "active",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    lastLoginAt: data.lastLoginAt,
   };
 };
 
-const mapCase = (snapshot: QueryDocumentSnapshot<DocumentData>): Case => {
-  const data = snapshot.data() as Partial<Case>;
+const mapOrganisation = (snapshot: DocumentSnapshot<DocumentData>): Organisation => {
+  const data = snapshot.data() || {};
   return {
-    id: (data.id as string) ?? snapshot.id,
-    title: data.title ?? "",
-    status: (data.status as Case["status"]) ?? "Draft",
-    physiotherapistId: data.physiotherapistId ?? "",
-    expertId: data.expertId ?? null,
-    patientId: data.patientId ?? "",
-    createdAt: parseTimestampString(data.createdAt as string | Timestamp, new Date().toISOString()),
-    updatedAt: parseTimestampString(data.updatedAt as string | Timestamp, new Date().toISOString()),
-    mskSummary: data.mskSummary ?? "",
-    mskData: data.mskData,
-    media: ensureMedia(data.media),
+    id: snapshot.id,
+    name: data.name ?? "",
+    phone: data.phone ?? "",
+    contactEmail: data.contactEmail ?? "",
+    address1: data.address1 ?? "",
+    address2: data.address2,
+    city: data.city ?? "",
+    state: data.state ?? "",
+    postalCode: data.postalCode ?? "",
+    country: data.country ?? "",
+    logoUrl: data.logoUrl,
+    createdAt: data.createdAt,
+    createdBy: data.createdBy ?? "",
+    settings: {
+      dateFormat: data.settings?.dateFormat ?? "DD/MM/YYYY",
+      measurementSystem: data.settings?.measurementSystem ?? "metric",
+      mode: data.settings?.mode ?? "clinical",
+      displayNormativeData: data.settings?.displayNormativeData ?? true,
+    },
+  };
+};
+
+const mapGroup = (snapshot: QueryDocumentSnapshot<DocumentData>): Group => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    name: data.name ?? "",
+    categoryId: data.categoryId ?? "",
+    assignedUserIds: data.assignedUserIds ?? [],
+    createdAt: data.createdAt,
+    createdBy: data.createdBy ?? "",
+    profileCount: data.profileCount ?? 0,
+  };
+};
+
+const mapCategory = (snapshot: QueryDocumentSnapshot<DocumentData>): Category => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    name: data.name ?? "",
+    description: data.description,
+    createdAt: data.createdAt,
+    createdBy: data.createdBy ?? "",
+  };
+};
+
+const mapProfile = (snapshot: QueryDocumentSnapshot<DocumentData>): Profile => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    fullName: data.fullName ?? "",
+    email: data.email ?? "",
+    phone: data.phone ?? "",
+    dob: data.dob ?? null,
+    heightCm: data.heightCm ?? 0,
+    weightKg: data.weightKg ?? 0,
+    sex: data.sex ?? "M",
+    categoryId: data.categoryId ?? "",
+    groupId: data.groupId ?? "",
+    assignedClinicianIds: data.assignedClinicianIds ?? [],
+    status: data.status ?? "active",
+    createdAt: data.createdAt,
+    createdBy: data.createdBy ?? "",
+    updatedAt: data.updatedAt,
+    summary: {
+      lastAssessmentAt: data.summary?.lastAssessmentAt ?? null,
+      lastAssessmentType: data.summary?.lastAssessmentType ?? null,
+      latestScores: {
+        postureScore: data.summary?.latestScores?.postureScore ?? 0,
+        riskScore: data.summary?.latestScores?.riskScore ?? 0,
+      },
+    },
+  };
+};
+
+const mapAssessment = (snapshot: QueryDocumentSnapshot<DocumentData>): Assessment => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    profileId: data.profileId ?? "",
+    type: data.type ?? "posture",
+    groupId: data.groupId ?? "",
+    categoryId: data.categoryId ?? "",
+    createdBy: data.createdBy ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    status: data.status ?? "draft",
+    notes: data.notes ?? "",
+    media: data.media ?? { photos: [], videos: [], frames: [] },
+    annotations: data.annotations ?? { landmarks: { front: [], side: [] }, lines: [], angles: [] },
+    metricsSummary: data.metricsSummary ?? {},
   };
 };
 
 const mapReport = (snapshot: QueryDocumentSnapshot<DocumentData>): Report => {
-  const data = snapshot.data() as Partial<Report>;
+  const data = snapshot.data();
   return {
-    caseId: data.caseId ?? "",
-    physiotherapistId: data.physiotherapistId ?? "",
-    sections: (data.sections as Record<string, string>) ?? {},
-    status: data.status ?? "Draft",
-    updatedAt: parseTimestampString(data.updatedAt as string | Timestamp, new Date().toISOString()),
+    id: snapshot.id,
+    profileId: data.profileId ?? "",
+    createdBy: data.createdBy ?? "",
+    createdAt: data.createdAt,
+    templateId: data.templateId ?? null,
+    assessmentIds: data.assessmentIds ?? [],
+    summaryText: data.summaryText ?? "",
+    recommendations: data.recommendations ?? "",
+    pdf: data.pdf ?? { url: "", path: "" },
+    share: data.share ?? { enabled: false, token: null, expiresAt: null },
+  };
+};
+
+const mapProgram = (snapshot: QueryDocumentSnapshot<DocumentData>): Program => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    name: data.name ?? "",
+    createdBy: data.createdBy ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    items: data.items ?? [],
+    tags: data.tags ?? [],
+  };
+};
+
+const mapAssignment = (snapshot: QueryDocumentSnapshot<DocumentData>): ProgramAssignment => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    programId: data.programId ?? "",
+    profileId: data.profileId ?? "",
+    assignedBy: data.assignedBy ?? "",
+    assignedAt: data.assignedAt,
+    status: data.status ?? "active",
+    progress: data.progress ?? { completedItems: 0, lastCompletedAt: null },
   };
 };
 
 export interface AppState {
   theme: ThemeMode;
   setTheme: (mode: ThemeMode) => void;
+  organisation: Organisation | null;
   users: User[];
-  patients: Patient[];
-  cases: Case[];
+  profiles: Profile[];
+  assessments: Assessment[];
   reports: Report[];
+  categories: Category[];
+  groups: Group[];
+  programs: Program[];
+  programAssignments: ProgramAssignment[];
+  dashboardStats: DashboardGroupStats[];
   authUser: User | null;
   isLoadingAuth: boolean;
+  authError: string | null;
+  isCreatingOrg: boolean;
+  isProvisioning: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  signup: (name: string, email: string, role: Role, password: string) => Promise<void>;
-  addPatient: (patient: Omit<Patient, "id" | "lastSession" | "physiotherapistId">) => Promise<void>;
-  addCase: (payload: Partial<Case> & { title: string; patientId: string }) => Promise<void>;
-  updateCase: (caseId: string, patch: Partial<Case>) => Promise<void>;
+  createOrganisation: (orgName: string, name: string, email: string, password: string) => Promise<void>;
+  createInvite: (email: string, inviteRole: UserRole, allowedGroupIds?: string[]) => Promise<string>;
+  acceptInvite: (inviteId: string, orgId: string, name: string, password: string) => Promise<void>;
+  uploadFile: (path: string, file: File) => Promise<string>;
+  addProfile: (profile: Omit<Profile, "id" | "createdAt" | "updatedAt" | "createdBy">) => Promise<void>;
+  addAssessment: (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy">) => Promise<void>;
+  updateAssessment: (assessmentId: string, patch: Partial<Assessment>) => Promise<void>;
   addReport: (report: Report) => Promise<void>;
-  updateUserRole: (userId: string, role: Role) => Promise<void>;
+  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  updateOrganisation: (details: Partial<Organisation>) => Promise<void>;
 }
 
 const initialTheme = getStoredTheme();
 applyTheme(initialTheme);
 
+const CREATING_ORG_KEY = "wba99_creating_org";
 const LAST_ACTIVE_KEY = "wba99_last_active";
 const MAX_INACTIVE_DAYS = 14;
 
@@ -141,46 +248,82 @@ export const useAppStore = create<AppState>((set, get) => {
     unsubscribers = [];
   };
 
-  const setupListeners = (user: User) => {
+  const setupListeners = (user: User, orgId: string) => {
     cleanupListeners();
 
-    // Users listener (only for admin)
-    if (user.role === "admin") {
-      const usersUnsub = onSnapshot(collection(firebaseDB, "users"), (snapshot) => {
-        set({ users: snapshot.docs.map(mapUser) });
-      });
-      unsubscribers.push(usersUnsub);
-    }
+    const handleError = (collectionName: string, _error: any) => {
+      // Log more quietly, as this is often just a propagation race condition
+      console.log(`[Sync] Waiting for full access to ${collectionName}...`);
+    };
 
-    // Patients listener - filter by physiotherapistId if not admin
-    const patientsQuery = user.role === "admin"
-      ? collection(firebaseDB, "patients")
-      : query(collection(firebaseDB, "patients"), where("physiotherapistId", "==", user.id));
+    // Organisation listener
+    const orgUnsub = onSnapshot(doc(firebaseDB, "orgs", orgId), (snapshot) => {
+      set({ organisation: mapOrganisation(snapshot) });
+    }, (err) => handleError("organisation", err));
+    unsubscribers.push(orgUnsub);
 
-    const patientsUnsub = onSnapshot(patientsQuery, (snapshot) => {
-      set({ patients: snapshot.docs.map(mapPatient) });
-    });
-    unsubscribers.push(patientsUnsub);
+    // Users listener
+    const usersUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "users"), (snapshot) => {
+      set({ users: snapshot.docs.map(mapUser) });
+    }, (err) => handleError("users", err));
+    unsubscribers.push(usersUnsub);
 
-    // Cases listener
-    const casesQuery = user.role === "admin"
-      ? collection(firebaseDB, "cases")
-      : query(collection(firebaseDB, "cases"), where("physiotherapistId", "==", user.id));
+    // Categories listener
+    const categoriesUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "categories"), (snapshot) => {
+      set({ categories: snapshot.docs.map(mapCategory) });
+    }, (err) => handleError("categories", err));
+    unsubscribers.push(categoriesUnsub);
 
-    const casesUnsub = onSnapshot(casesQuery, (snapshot) => {
-      set({ cases: snapshot.docs.map(mapCase) });
-    });
-    unsubscribers.push(casesUnsub);
+    // Groups listener
+    const groupsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "groups"), (snapshot) => {
+      set({ groups: snapshot.docs.map(mapGroup) });
+    }, (err) => handleError("groups", err));
+    unsubscribers.push(groupsUnsub);
 
-    // Reports listener - filter by physiotherapistId if not admin
-    const reportsQuery = user.role === "admin"
-      ? collection(firebaseDB, "reports")
-      : query(collection(firebaseDB, "reports"), where("physiotherapistId", "==", user.id));
+    // Profiles listener
+    const profilesQuery = user.role === "owner" || user.role === "admin"
+      ? collection(firebaseDB, "orgs", orgId, "profiles")
+      : query(collection(firebaseDB, "orgs", orgId, "profiles"), where("assignedClinicianIds", "array-contains", user.uid));
 
-    const reportsUnsub = onSnapshot(reportsQuery, (snapshot) => {
+    const profilesUnsub = onSnapshot(profilesQuery, (snapshot) => {
+      set({ profiles: snapshot.docs.map(mapProfile) });
+    }, (err) => handleError("profiles", err));
+    unsubscribers.push(profilesUnsub);
+
+    // Assessments listener
+    const assessmentsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "assessments"), (snapshot) => {
+      set({ assessments: snapshot.docs.map(mapAssessment) });
+    }, (err) => handleError("assessments", err));
+    unsubscribers.push(assessmentsUnsub);
+
+    // Reports listener
+    const reportsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "reports"), (snapshot) => {
       set({ reports: snapshot.docs.map(mapReport) });
-    });
+    }, (err) => handleError("reports", err));
     unsubscribers.push(reportsUnsub);
+
+    // Programs listener
+    const programsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "programs"), (snapshot) => {
+      set({ programs: snapshot.docs.map(mapProgram) });
+    }, (err) => handleError("programs", err));
+    unsubscribers.push(programsUnsub);
+
+    // Program Assignments listener
+    const assignmentsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "programAssignments"), (snapshot) => {
+      set({ programAssignments: snapshot.docs.map(mapAssignment) });
+    }, (err) => handleError("programAssignments", err));
+    unsubscribers.push(assignmentsUnsub);
+
+    // Dashboard Stats listener
+    const statsUnsub = onSnapshot(collection(firebaseDB, "orgs", orgId, "dashboard_groupStats"), (snapshot) => {
+      set({
+        dashboardStats: snapshot.docs.map((d) => ({
+          groupId: d.id,
+          ...d.data()
+        } as DashboardGroupStats))
+      });
+    }, (err) => handleError("dashboard_groupStats", err));
+    unsubscribers.push(statsUnsub);
   };
 
   const checkInactivity = () => {
@@ -209,20 +352,46 @@ export const useAppStore = create<AppState>((set, get) => {
       }
 
       try {
-        const userDoc = await getDoc(doc(firebaseDB, "users", firebaseUser.uid));
+        // Step 2 — Force token refresh once to get custom claims
+        const tokenResult = await firebaseUser.getIdTokenResult(true);
+        const orgId = tokenResult.claims.orgId as string;
+
+        if (!orgId) {
+          // RACE CONDITION FIX: If we are currently creating an org, don't show an error yet.
+          // The createOrganisation function is polling for these claims.
+          const creatingOrgTs = localStorage.getItem(CREATING_ORG_KEY);
+          const isJustCreating = creatingOrgTs && (Date.now() - parseInt(creatingOrgTs)) < 5 * 60 * 1000; // 5 min window
+
+          // Safety: If the account was created less than 2 minutes ago, also suppress the error.
+          const creationTime = firebaseUser.metadata.creationTime ? new Date(firebaseUser.metadata.creationTime).getTime() : 0;
+          const isNewAccount = (Date.now() - creationTime) < 2 * 60 * 1000;
+
+          if (get().isCreatingOrg || isJustCreating || isNewAccount) {
+            console.log("[Auth] skipping 'not configured' error as account is potentially still being provisioned...");
+            set({ isLoadingAuth: false, isProvisioning: true });
+            return;
+          }
+          set({ authUser: null, isLoadingAuth: false, isProvisioning: false, authError: "Your account is not configured. Contact admin." });
+          return;
+        }
+
+        set({ isProvisioning: false }); // Claims found, no longer provisioning
+
+        // Step 3 — Load user doc
+        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", firebaseUser.uid));
         if (userDoc.exists()) {
-          const user = mapUserFromDoc(userDoc);
-          set({ authUser: user, isLoadingAuth: false });
-          setupListeners(user);
+          const user = mapUser(userDoc as any);
+          set({ authUser: user, isLoadingAuth: false, authError: null });
+          setupListeners(user, orgId);
         } else {
-          set({ authUser: null, isLoadingAuth: false });
+          set({ authUser: null, isLoadingAuth: false, authError: "User profile not found in organisation." });
         }
       } catch (error) {
         console.error("Failed to rehydrate auth", error);
-        set({ authUser: null, isLoadingAuth: false });
+        set({ authUser: null, isLoadingAuth: false, authError: "Failed to load profile." });
       }
     } else {
-      set({ authUser: null, isLoadingAuth: false });
+      set({ authUser: null, isLoadingAuth: false, isCreatingOrg: false, isProvisioning: false, authError: null });
       cleanupListeners();
     }
   });
@@ -236,26 +405,53 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       set({ theme: mode });
     },
+    organisation: null,
     users: [],
-    patients: [],
-    cases: [],
+    profiles: [],
+    assessments: [],
     reports: [],
+    categories: [],
+    groups: [],
+    programs: [],
+    programAssignments: [],
+    dashboardStats: [],
     authUser: null,
     isLoadingAuth: true,
+    isCreatingOrg: false,
+    isProvisioning: false,
+    authError: null,
     login: async (email: string, password: string) => {
       try {
+        set({ isLoadingAuth: true, authError: null });
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-        const userDoc = await getDoc(doc(firebaseDB, "users", credential.user.uid));
-        if (!userDoc.exists()) {
+
+        // Force refresh to get latest claims
+        const idTokenResult = await credential.user.getIdTokenResult(true);
+        const orgId = idTokenResult.claims.orgId as string;
+
+        if (!orgId) {
+          set({ authError: "Missing organisation configuration.", isLoadingAuth: false });
           return false;
         }
-        const user = mapUserFromDoc(userDoc);
+
+        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", credential.user.uid));
+        if (!userDoc.exists()) {
+          set({ authError: "User profile not found in organisation.", isLoadingAuth: false });
+          return false;
+        }
+        const user = mapUser(userDoc as any);
+        if (user.status === "disabled") {
+          set({ authError: "Your account is disabled. Contact admin.", isLoadingAuth: false });
+          return false;
+        }
+
         localStorage.setItem(LAST_ACTIVE_KEY, new Date().toISOString());
-        set({ authUser: user });
-        setupListeners(user);
+        set({ authUser: user, isLoadingAuth: false });
+        setupListeners(user, orgId);
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error("Login failed", error);
+        set({ authError: "Wrong email or password", isLoadingAuth: false });
         return false;
       }
     },
@@ -263,105 +459,261 @@ export const useAppStore = create<AppState>((set, get) => {
       signOut(firebaseAuth).catch((error) => console.error("Failed to sign out", error));
       localStorage.removeItem(LAST_ACTIVE_KEY);
       cleanupListeners();
-      set({ authUser: null, patients: [], cases: [], reports: [] });
+      set({
+        authUser: null,
+        organisation: null,
+        profiles: [],
+        assessments: [],
+        reports: [],
+        categories: [],
+        groups: [],
+        programs: [],
+        programAssignments: [],
+        dashboardStats: [],
+        authError: null,
+      });
     },
-    signup: async (name: string, email: string, role: Role, password: string) => {
-      try {
-        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-        const nextUser: User = {
-          id: credential.user.uid,
-          name,
-          email,
-          role,
-          password,
-        };
-        await setDoc(doc(firebaseDB, "users", nextUser.id), {
-          ...nextUser,
-          createdAt: new Date().toISOString(),
-        });
-        // onAuthStateChanged will handle setting the authUser and listeners
-      } catch (error) {
-        console.error("Failed to save user to Firestore", error);
-        throw error;
-      }
-    },
-    addPatient: async (patient: Omit<Patient, "id" | "lastSession" | "physiotherapistId">) => {
-      const authUser = get().authUser;
-      if (!authUser) throw new Error("Authenticated user required");
-
-      const newPatient: Patient = {
-        id: `patient-${crypto.randomUUID().slice(0, 8)}`,
-        lastSession: new Date().toISOString(),
-        ...patient,
-        physiotherapistId: authUser.id,
+    createOrganisation: async (orgName: string, name: string, email: string, password: string) => {
+      const setCreating = (val: boolean) => {
+        if (val) localStorage.setItem(CREATING_ORG_KEY, Date.now().toString());
+        else localStorage.removeItem(CREATING_ORG_KEY);
+        set({ isCreatingOrg: val });
       };
 
       try {
-        await setDoc(doc(firebaseDB, "patients", newPatient.id), newPatient);
-        // Listener will update the state
-      } catch (error) {
-        console.error("Failed to persist patient", error);
+        set({ isLoadingAuth: true, authError: null });
+        setCreating(true);
+
+        // 1. Create Auth user
+        console.log("Creating Auth user...");
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        const uid = credential.user.uid;
+        const orgId = `org-${Math.random().toString(36).substring(2, 9)}`;
+        console.log(`Auth user created: ${uid}. Generated orgId: ${orgId}`);
+
+        // 2. Create Organisation doc
+        console.log("Writing Organisation doc to Firestore...");
+        await setDoc(doc(firebaseDB, "orgs", orgId), {
+          name: orgName,
+          phone: "",
+          contactEmail: email,
+          createdAt: new Date().toISOString(),
+          createdBy: uid,
+          settings: {
+            dateFormat: "DD/MM/YYYY",
+            measurementSystem: "metric",
+            mode: "clinical",
+            displayNormativeData: true,
+          },
+        });
+        console.log("Organisation doc written successfully.");
+
+        // 3. Create User doc
+        console.log("Writing User doc to Firestore...");
+        await setDoc(doc(firebaseDB, "orgs", orgId, "users", uid), {
+          uid,
+          name,
+          email,
+          role: "clinician",
+          isAdmin: false,
+          status: "active",
+          allowedGroupIds: ["*"],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        console.log("User doc written successfully.");
+
+        // Force a token refresh to get custom claims (set by background trigger)
+        console.log("Waiting for backend trigger to set custom claims...");
+        let attempts = 0;
+        let hasClaim = false;
+        const MAX_POLLING_ATTEMPTS = 20; // Increased from 15
+        const POLLING_INTERVAL_MS = 1500; // Decreased from 2000 for better responsiveness
+
+        while (attempts < MAX_POLLING_ATTEMPTS && !hasClaim) {
+          attempts++;
+          console.log(`Polling for claims (attempt ${attempts}/${MAX_POLLING_ATTEMPTS})...`);
+
+          await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
+
+          try {
+            // RELOAD is critical to pick up backend changes in some environments
+            await credential.user.reload();
+            // Force refresh token (true) to ensure we get the latest claims
+            const idTokenResult = await credential.user.getIdTokenResult(true);
+
+            if (idTokenResult.claims.orgId) {
+              console.log("Success! Custom claims detected in token:", idTokenResult.claims.orgId);
+              hasClaim = true;
+            } else {
+              console.warn(`Claims not ready yet (attempt ${attempts}), retrying...`);
+            }
+          } catch (e) {
+            console.warn("Error during polling, retrying...", e);
+          }
+        }
+
+        if (!hasClaim) {
+          console.warn("TIMEOUT: Custom claims delayed. Attempting best-effort workspace entry...");
+          // We don't throw yet, because the owner-bypass in Firestore rules might allow us to work 
+          // while the background trigger catches up.
+        }
+
+        // Re-run rehydration logic
+        console.log("Rehydrating app state...");
+        // Use the generated orgId since we might not have it in claims yet
+        const userDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "users", uid));
+        if (userDoc.exists()) {
+          const user = mapUser(userDoc as any);
+          set({ authUser: user, isLoadingAuth: false, isProvisioning: false });
+          setCreating(false);
+          setupListeners(user, orgId);
+          console.log("Signup flow completed with best-effort rehydration.");
+        } else {
+          console.error("User doc not found after creation during rehydration.");
+          set({ isLoadingAuth: false });
+          setCreating(false);
+          if (!hasClaim) {
+            throw new Error("Your workspace is taking a moment to initialize. Please wait 10 seconds and refresh the page.");
+          }
+          throw new Error("We encountered an issue finalizing your workspace. Please sign in again.");
+        }
+      } catch (error: any) {
+        console.error("CRITICAL AUTH FAILURE:", error);
+        set({ authError: error.message, isLoadingAuth: false });
+        // Clean up even on fail, though we might want to keep it if we want retries
+        // But for now, clean up so the error can be shown if it's a real fail
+        if (typeof setCreating === 'function') setCreating(false);
         throw error;
       }
     },
-    addCase: async (payload: Partial<Case> & { title: string; patientId: string }) => {
+    createInvite: async (email: string, inviteRole: UserRole, allowedGroupIds?: string[]) => {
+      try {
+        const inviteFunc = httpsCallable(firebaseFunctions, "createInvite");
+        const result = await inviteFunc({ email, inviteRole, allowedGroupIds }) as any;
+        const orgId = get().organisation?.id;
+        return `${window.location.origin}/accept-invite?inviteId=${result.data.inviteId}&orgId=${orgId}`;
+      } catch (error: any) {
+        console.error("Failed to create invite", error);
+        throw error;
+      }
+    },
+    acceptInvite: async (inviteId: string, orgId: string, name: string, password: string) => {
+      try {
+        set({ isLoadingAuth: true });
+        const acceptFunc = httpsCallable(firebaseFunctions, "acceptInviteAndSetPassword");
+        await acceptFunc({ inviteId, orgId, name, password });
+
+        // Re-login to get session
+        const emailDoc = await getDoc(doc(firebaseDB, "orgs", orgId, "invites", inviteId));
+        const email = emailDoc.data()?.email;
+        if (email) {
+          await get().login(email, password);
+        }
+      } catch (error: any) {
+        console.error("Failed to accept invite", error);
+        set({ authError: error.message, isLoadingAuth: false });
+        throw error;
+      }
+    },
+    uploadFile: async (path: string, file: File) => {
+      const storageRef = ref(firebaseStorage, path);
+      await uploadBytes(storageRef, file);
+      return getDownloadURL(storageRef);
+    },
+    addProfile: async (profile: Omit<Profile, "id" | "createdAt" | "updatedAt" | "createdBy">) => {
       const authUser = get().authUser;
-      if (!authUser) throw new Error("Authenticated user required");
+      const orgId = get().organisation?.id;
+      if (!authUser || !orgId) throw new Error("Authenticated user and organisation required");
 
       const now = new Date().toISOString();
-      const newCase: Case = {
-        id: `case-${crypto.randomUUID().slice(0, 8)}`,
-        title: payload.title,
-        patientId: payload.patientId,
-        physiotherapistId: authUser.id,
-        expertId: payload.expertId ?? null,
-        status: payload.status ?? "Draft",
+      const newProfile: Profile = {
+        id: `profile-${crypto.randomUUID().slice(0, 8)}`,
+        ...profile,
         createdAt: now,
         updatedAt: now,
-        mskSummary: payload.mskSummary ?? "",
-        mskData: payload.mskData,
-        media: payload.media ?? {
-          posture: [],
-          ground: [],
-          treadmill: [],
+        createdBy: authUser.uid,
+        status: "active",
+        summary: {
+          lastAssessmentAt: null,
+          lastAssessmentType: null,
+          latestScores: { postureScore: 0, riskScore: 0 },
         },
       };
 
       try {
-        await setDoc(doc(firebaseDB, "cases", newCase.id), newCase);
+        await setDoc(doc(firebaseDB, "orgs", orgId, "profiles", newProfile.id), newProfile);
       } catch (error) {
-        console.error("Failed to persist case", error);
+        console.error("Failed to persist profile", error);
         throw error;
       }
     },
-    updateCase: async (caseId: string, patch: Partial<Case>) => {
-      const updatedAt = new Date().toISOString();
-      const cleanPatch = { ...patch, updatedAt };
-      if (cleanPatch.expertId === undefined) {
-        // preserve existing if not in patch, but if we want to CLEAR it, we should pass null
-      }
+    addAssessment: async (assessment: Omit<Assessment, "id" | "createdAt" | "updatedAt" | "createdBy">) => {
+      const authUser = get().authUser;
+      const orgId = get().organisation?.id;
+      if (!authUser || !orgId) throw new Error("Authenticated user and organisation required");
+
+      const now = new Date().toISOString();
+      const newAssessment: Assessment = {
+        id: `assessment-${crypto.randomUUID().slice(0, 8)}`,
+        ...assessment,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: authUser.uid,
+        status: "draft",
+      };
 
       try {
-        await updateDoc(doc(firebaseDB, "cases", caseId), cleanPatch as any);
+        await setDoc(doc(firebaseDB, "orgs", orgId, "assessments", newAssessment.id), newAssessment);
       } catch (error) {
-        console.error("Failed to update case", error);
+        console.error("Failed to persist assessment", error);
+        throw error;
+      }
+    },
+    updateAssessment: async (assessmentId: string, patch: Partial<Assessment>) => {
+      const orgId = get().organisation?.id;
+      if (!orgId) throw new Error("Organisation required");
+
+      const updatedAt = new Date().toISOString();
+      const cleanPatch = { ...patch, updatedAt };
+
+      try {
+        await updateDoc(doc(firebaseDB, "orgs", orgId, "assessments", assessmentId), cleanPatch as any);
+      } catch (error) {
+        console.error("Failed to update assessment", error);
         throw error;
       }
     },
     addReport: async (report: Report) => {
-      const persistedReport: Report = { ...report, updatedAt: new Date().toISOString() };
+      const orgId = get().organisation?.id;
+      if (!orgId) throw new Error("Organisation required");
+
       try {
-        await setDoc(doc(firebaseDB, "reports", `report-${report.caseId}`), persistedReport);
+        await setDoc(doc(firebaseDB, "orgs", orgId, "reports", report.id), report);
       } catch (error) {
         console.error("Failed to save report", error);
         throw error;
       }
     },
-    updateUserRole: async (userId: string, role: Role) => {
+    updateUserRole: async (userId: string, role: UserRole) => {
+      const orgId = get().organisation?.id;
+      if (!orgId) throw new Error("Organisation required");
+
       try {
-        await updateDoc(doc(firebaseDB, "users", userId), { role });
+        await updateDoc(doc(firebaseDB, "orgs", orgId, "users", userId), { role });
       } catch (error) {
         console.error("Failed to update user role", error);
+        throw error;
+      }
+    },
+    updateOrganisation: async (details: Partial<Organisation>) => {
+      const orgId = get().organisation?.id;
+      if (!orgId) throw new Error("Organisation required");
+
+      try {
+        await updateDoc(doc(firebaseDB, "orgs", orgId), details as any);
+      } catch (error) {
+        console.error("Failed to update organisation", error);
         throw error;
       }
     },

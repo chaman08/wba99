@@ -17,22 +17,35 @@ import { useAppStore } from "../../store/useAppStore";
 
 export const PhysioDashboard = () => {
   const navigate = useNavigate();
-  const { authUser, patients, cases, reports } = useAppStore();
+  const { authUser, profiles, assessments, reports } = useAppStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const stats = useMemo(() => [
-    { label: "Total Clients", value: patients.length, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Assessments (Weekly)", value: cases.filter(c => new Date(c.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
+    { label: "Total Profiles", value: profiles.length, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    {
+      label: "Analyses (Weekly)", value: assessments.filter(a => {
+        const date = new Date(typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.seconds * 1000);
+        return date.getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+      }).length, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10"
+    },
     { label: "Reports Ready", value: reports.length, icon: FileText, color: "text-purple-500", bg: "bg-purple-500/10" },
-  ], [patients, cases, reports]);
+  ], [profiles, assessments, reports]);
 
-  const recentClients = useMemo(() =>
-    [...patients].sort((a, b) => new Date(b.lastSession).getTime() - new Date(a.lastSession).getTime()).slice(0, 5)
-    , [patients]);
+  const recentProfiles = useMemo(() =>
+    [...profiles].sort((a, b) => {
+      const dateA = new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).getTime();
+      const dateB = new Date(typeof b.updatedAt === 'string' ? b.updatedAt : b.updatedAt.seconds * 1000).getTime();
+      return dateB - dateA;
+    }).slice(0, 5)
+    , [profiles]);
 
   const recentAssessments = useMemo(() =>
-    [...cases].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10)
-    , [cases]);
+    [...assessments].sort((a, b) => {
+      const dateA = new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).getTime();
+      const dateB = new Date(typeof b.updatedAt === 'string' ? b.updatedAt : b.updatedAt.seconds * 1000).getTime();
+      return dateB - dateA;
+    }).slice(0, 10)
+    , [assessments]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24 lg:pb-8">
@@ -45,10 +58,10 @@ export const PhysioDashboard = () => {
       {/* Quick Start Cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "New Client", icon: UserPlus, to: "/app/clients", color: "bg-blue-600" },
-          { label: "Posture", icon: Camera, to: "/app/assess", color: "bg-primary" },
-          { label: "Gait/Run", icon: Activity, to: "/app/assess", color: "bg-secondary" },
-          { label: "MSK Form", icon: Stethoscope, to: "/app/assess", color: "bg-purple-600" },
+          { label: "New Profile", icon: UserPlus, to: "/app/clients", color: "bg-blue-600" },
+          { label: "Posture", icon: Camera, to: "/app/cases/new?type=posture", color: "bg-primary" },
+          { label: "Movement", icon: Activity, to: "/app/cases/new?type=movement", color: "bg-secondary" },
+          { label: "MSK Form", icon: Stethoscope, to: "/app/cases/new?type=msk", color: "bg-purple-600" },
         ].map((action) => (
           <button
             key={action.label}
@@ -68,31 +81,30 @@ export const PhysioDashboard = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" /> Recent Assessments
+              <Clock className="h-5 w-5 text-primary" /> Recent Analysis
             </h3>
-            <button onClick={() => navigate("/app/activity")} className="text-xs font-bold text-primary hover:underline">View All</button>
           </div>
 
           <div className="space-y-3">
-            {recentAssessments.map((c) => (
+            {recentAssessments.map((a) => (
               <div
-                key={c.id}
-                onClick={() => navigate(`/app/cases/${c.id}`)}
+                key={a.id}
+                onClick={() => navigate(`/app/cases/${a.id}`)}
                 className="group flex items-center justify-between p-4 bg-surface/30 border border-white/5 rounded-2xl hover:bg-surface/50 hover:border-primary/30 transition-all cursor-pointer"
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                     <Activity className="h-5 w-5 text-text-muted group-hover:text-primary transition-colors" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold group-hover:text-primary transition-colors">{c.title}</p>
-                    <p className="text-[10px] text-text-muted">Updated {new Date(c.updatedAt).toLocaleDateString()}</p>
+                    <p className="text-sm font-bold group-hover:text-primary transition-colors uppercase italic">{a.type} Analysis</p>
+                    <p className="text-[10px] text-text-muted">Updated {new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${c.status === 'Report Ready' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${a.status === 'final' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
                     }`}>
-                    {c.status}
+                    {a.status}
                   </span>
                   <ChevronRight className="h-4 w-4 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </div>
@@ -108,10 +120,10 @@ export const PhysioDashboard = () => {
         <div className="space-y-8">
           <section className="space-y-4">
             <h3 className="text-xl font-bold flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Recent Clients
+              <Users className="h-5 w-5 text-primary" /> Recent Profiles
             </h3>
             <div className="space-y-2">
-              {recentClients.map((p) => (
+              {recentProfiles.map((p) => (
                 <div
                   key={p.id}
                   onClick={() => navigate(`/app/clients/${p.id}`)}
@@ -119,15 +131,15 @@ export const PhysioDashboard = () => {
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                      {p.name.charAt(0)}
+                      {p.fullName.charAt(0)}
                     </div>
-                    <p className="text-sm font-bold">{p.name}</p>
+                    <p className="text-sm font-bold">{p.fullName}</p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-text-muted" />
                 </div>
               ))}
-              {recentClients.length === 0 && (
-                <p className="text-xs text-text-muted p-4 text-center">No clients added yet.</p>
+              {recentProfiles.length === 0 && (
+                <p className="text-xs text-text-muted p-4 text-center">No profiles added yet.</p>
               )}
             </div>
           </section>
@@ -165,10 +177,10 @@ export const PhysioDashboard = () => {
             <div className="fixed inset-0 bg-background/60 backdrop-blur-md z-[-1]" onClick={() => setIsMenuOpen(false)} />
             <div className="absolute bottom-20 right-0 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-500">
               {[
-                { label: "Add Client", icon: UserPlus, to: "/app/clients" },
-                { label: "Gait Assessment", icon: Activity, to: "/app/assess" },
-                { label: "Posture Assessment", icon: Camera, to: "/app/assess" },
-                { label: "MSK Screening", icon: Stethoscope, to: "/app/assess" },
+                { label: "Add Profile", icon: UserPlus, to: "/app/clients" },
+                { label: "Movement Analysis", icon: Activity, to: "/app/cases/new?type=movement" },
+                { label: "Posture Analysis", icon: Camera, to: "/app/cases/new?type=posture" },
+                { label: "MSK Screening", icon: Stethoscope, to: "/app/cases/new?type=msk" },
               ].map((item) => (
                 <button
                   key={item.label}

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useDropzone } from "react-dropzone";
@@ -8,9 +8,10 @@ import { z } from "zod";
 import { CheckCircle, UploadCloud, Activity, Footprints, FileText } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { MSKAssessmentForm } from "../../components/forms/MSKAssessmentForm";
+import type { AssessmentType } from "../../types";
 
 const wizardSchema = z.object({
-    patientId: z.string().min(1, "Select a patient"),
+    profileId: z.string().min(1, "Select a profile"),
     postureNotes: z.string().optional(),
     groundNotes: z.string().optional(),
     treadmillNotes: z.string().optional(),
@@ -20,66 +21,73 @@ const wizardSchema = z.object({
 
 type WizardForm = z.infer<typeof wizardSchema>;
 
-const DRAFT_KEY = "case-wizard-draft";
+const DRAFT_KEY = "assessment-wizard-draft";
 
-const useMediaGroup = (initial: string[]) => {
-    const [files, setFiles] = useState(initial);
+const useMediaGroup = (initial: { name: string; file?: File }[] = []) => {
+    const [files, setFiles] = useState<{ name: string; file?: File }[]>(initial);
     const dropzone = useDropzone({
         accept: { "image/*": [], "video/*": [] },
         onDrop: (accepted) => {
             setFiles((prev) => {
-                const next = [...prev, ...accepted.map((file) => file.name)];
-                return Array.from(new Set(next)).slice(0, 4);
+                const newItems = accepted.map((file) => ({ name: file.name, file }));
+                const next = [...prev, ...newItems];
+                // Keep unique by name and limit to 4
+                const unique = Array.from(new Map(next.map(item => [item.name, item])).values());
+                return unique.slice(0, 4);
             });
         },
     });
-    const remove = (target: string) => setFiles((prev) => prev.filter((item) => item !== target));
+    const remove = (targetName: string) => setFiles((prev) => prev.filter((item) => item.name !== targetName));
     return { files, setFiles, remove, getRootProps: dropzone.getRootProps, getInputProps: dropzone.getInputProps };
 };
 
-type TestType = "posture" | "gait" | "msk";
+type TestChoice = "posture" | "movement" | "msk";
 
 export const CaseWizard = () => {
-    const { register, handleSubmit, reset, watch, trigger } = useForm<WizardForm>({
+    const [searchParams] = useSearchParams();
+    const initialProfileId = searchParams.get("clientId") || "";
+    const initialType = searchParams.get("type") as TestChoice || null;
+
+    const { register, handleSubmit, reset, watch, trigger, setValue } = useForm<WizardForm>({
         resolver: zodResolver(wizardSchema),
-        defaultValues: { patientId: "", postureNotes: "", groundNotes: "", treadmillNotes: "", mskSummary: "", mskData: {} },
+        defaultValues: { profileId: initialProfileId, postureNotes: "", groundNotes: "", treadmillNotes: "", mskSummary: "", mskData: {} },
     });
-    const [activeStep, setActiveStep] = useState(0);
+
+    const [activeStep, setActiveStep] = useState(initialProfileId ? 1 : 0);
     const [stepError, setStepError] = useState("");
     const [savedLabel, setSavedLabel] = useState("Auto-saving...");
     const [submitted, setSubmitted] = useState(false);
-    const [selectedTest, setSelectedTest] = useState<TestType | null>(null);
+    const [selectedTest, setSelectedTest] = useState<TestChoice | null>(initialType);
 
     const watchValues = watch();
     const postureGroup = useMediaGroup([]);
     const groundGroup = useMediaGroup([]);
     const treadmillGroup = useMediaGroup([]);
-    const addCase = useAppStore((state) => state.addCase);
-    const patients = useAppStore((state) => state.patients);
-    const activeUser = useAppStore((state) => state.authUser);
+    const addAssessment = useAppStore((state) => state.addAssessment);
+    const uploadFile = useAppStore((state) => state.uploadFile);
+    const organisation = useAppStore((state) => state.organisation);
+    const profiles = useAppStore((state) => state.profiles);
 
     const steps = [
-        { label: "Patient selection" },
+        { label: "Profile selection" },
         { label: "Assessment choice" },
-        { label: selectedTest === "posture" ? "Posture test" : selectedTest === "gait" ? "Gait analysis" : selectedTest === "msk" ? "MSK screening" : "Assessment" },
+        { label: selectedTest === "posture" ? "Posture test" : selectedTest === "movement" ? "Movement analysis" : selectedTest === "msk" ? "MSK screening" : "Assessment" },
         { label: "Final review" },
     ];
 
-    const activePatients = useMemo(() => {
-        if (!activeUser) {
-            return patients;
-        }
-        return patients.filter((patient) => patient.physiotherapistId === activeUser.id);
-    }, [patients, activeUser?.id]);
-
-    const patientOptions = useMemo(
-        () => activePatients.map((patient) => ({ label: patient.name, value: patient.id })),
-        [activePatients],
+    const profileOptions = useMemo(
+        () => profiles.map((p) => ({ label: p.fullName, value: p.id })),
+        [profiles],
     );
 
     useEffect(() => {
+        if (initialProfileId) setValue("profileId", initialProfileId);
+        if (initialType) setSelectedTest(initialType);
+    }, [initialProfileId, initialType, setValue]);
+
+    useEffect(() => {
         const stored = localStorage.getItem(DRAFT_KEY);
-        if (stored) {
+        if (stored && !initialProfileId) {
             const parsed = JSON.parse(stored);
             reset(parsed.form);
             postureGroup.setFiles(parsed.media.posture ?? []);
@@ -88,7 +96,7 @@ export const CaseWizard = () => {
             if (parsed.test) setSelectedTest(parsed.test);
             setActiveStep(parsed.step ?? 0);
         }
-    }, [reset]);
+    }, [reset, initialProfileId]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -97,9 +105,9 @@ export const CaseWizard = () => {
                 JSON.stringify({
                     form: watchValues,
                     media: {
-                        posture: postureGroup.files,
-                        ground: groundGroup.files,
-                        treadmill: treadmillGroup.files,
+                        posture: postureGroup.files.map(f => ({ name: f.name })),
+                        ground: groundGroup.files.map(f => ({ name: f.name })),
+                        treadmill: treadmillGroup.files.map(f => ({ name: f.name })),
                     },
                     test: selectedTest,
                     step: activeStep,
@@ -108,15 +116,15 @@ export const CaseWizard = () => {
             setSavedLabel("Saved just now");
         }, 400);
         return () => clearTimeout(timer);
-    }, [JSON.stringify(watchValues), JSON.stringify(postureGroup.files), JSON.stringify(groundGroup.files), JSON.stringify(treadmillGroup.files), activeStep, selectedTest]);
+    }, [JSON.stringify(watchValues), JSON.stringify(postureGroup.files.map(f => f.name)), JSON.stringify(groundGroup.files.map(f => f.name)), JSON.stringify(treadmillGroup.files.map(f => f.name)), activeStep, selectedTest]);
 
     const handleNext = async () => {
         setStepError("");
 
         if (activeStep === 0) {
-            const valid = await trigger("patientId");
+            const valid = await trigger("profileId");
             if (!valid) {
-                setStepError("Pick a patient to continue.");
+                setStepError("Pick a profile to continue.");
                 return;
             }
         }
@@ -134,13 +142,11 @@ export const CaseWizard = () => {
                     setStepError("Upload at least 1 posture photo.");
                     return;
                 }
-            } else if (selectedTest === "gait") {
+            } else if (selectedTest === "movement") {
                 if (groundGroup.files.length === 0 && treadmillGroup.files.length === 0) {
-                    setStepError("Upload at least 1 video for ground or treadmill.");
+                    setStepError("Upload at least 1 video for analysis.");
                     return;
                 }
-            } else if (selectedTest === "msk") {
-                // MSK is optional or heavily multi-field, so we don't strictly require fields in code for now
             }
         }
 
@@ -151,28 +157,62 @@ export const CaseWizard = () => {
     const onSubmit = async (values: WizardForm) => {
         if (submitted) return;
         setStepError("");
-        setSavedLabel("Submitting...");
+        setSavedLabel("Uploading and submitting...");
+
+        const profile = profiles.find(p => p.id === values.profileId);
+        if (!profile || !organisation) return;
 
         try {
-            await addCase({
-                title: `${patients.find((patient) => patient.id === values.patientId)?.name || 'Patient'} · ${selectedTest ? selectedTest.toUpperCase() : 'Assessment'}`,
-                patientId: values.patientId,
-                status: "Submitted",
-                mskSummary: values.mskSummary || "",
-                mskData: values.mskData,
+            const assessmentId = `assessment-${crypto.randomUUID().slice(0, 8)}`;
+            const baseFolder = `orgs/${organisation.id}/assessments/${assessmentId}`;
+
+            const uploadTasks = async (items: { name: string, file?: File }[], subfolder: string) => {
+                return Promise.all(items.map(async (item) => {
+                    if (!item.file) return null;
+                    const path = `${baseFolder}/${subfolder}/${item.name}`;
+                    const url = await uploadFile(path, item.file);
+                    return { view: subfolder, url, path };
+                }));
+            };
+
+            const photos = selectedTest === "posture"
+                ? (await uploadTasks(postureGroup.files, "photos")).filter(Boolean) as any[]
+                : [];
+
+            const groundVideos = selectedTest === "movement"
+                ? (await uploadTasks(groundGroup.files, "ground")).filter(Boolean) as any[]
+                : [];
+
+            const treadmillVideos = selectedTest === "movement"
+                ? (await uploadTasks(treadmillGroup.files, "treadmill")).filter(Boolean) as any[]
+                : [];
+
+            await addAssessment({
+                profileId: values.profileId,
+                type: selectedTest as AssessmentType,
+                groupId: profile.groupId,
+                categoryId: profile.categoryId,
+                status: "draft",
+                notes: selectedTest === "posture" ? (values.postureNotes || "") : (selectedTest === "movement" ? `${values.groundNotes || ""} ${values.treadmillNotes || ""}`.trim() : values.mskSummary || ""),
                 media: {
-                    posture: postureGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
-                    ground: groundGroup.files.map((name) => ({ id: name, label: name, files: [], required: true, completed: true })),
-                    treadmill: treadmillGroup.files.map((name) => ({ id: name, label: name, files: [], required: false, completed: true })),
+                    photos: photos,
+                    videos: [
+                        ...groundVideos.map(v => ({ angle: "ground", url: v.url, path: v.path })),
+                        ...treadmillVideos.map(v => ({ angle: "treadmill", url: v.url, path: v.path }))
+                    ],
+                    frames: [],
                 },
+                annotations: { landmarks: { front: [], side: [] }, lines: [], angles: [] },
+                metricsSummary: selectedTest === "msk" ? values.mskData : {},
             });
+
             localStorage.removeItem(DRAFT_KEY);
             setSubmitted(true);
-            setSavedLabel("Case submitted");
+            setSavedLabel("Analysis submitted");
         } catch (error) {
             console.error("Submission failed", error);
             setStepError("Submission failed. Please try again.");
-            setSavedLabel("Error saving case");
+            setSavedLabel("Error saving analysis");
         }
     };
 
@@ -181,13 +221,13 @@ export const CaseWizard = () => {
             case 0:
                 return (
                     <div className="space-y-4">
-                        <label className="text-xs uppercase tracking-[0.4em] text-text-muted">Patient</label>
+                        <label className="text-xs uppercase tracking-[0.4em] text-text-muted">Profile</label>
                         <select
-                            {...register("patientId")}
+                            {...register("profileId")}
                             className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-3 text-sm text-text outline-none transition focus:border-primary"
                         >
-                            <option value="">Select patient</option>
-                            {patientOptions.map((option) => (
+                            <option value="">Select profile</option>
+                            {profileOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
@@ -195,18 +235,12 @@ export const CaseWizard = () => {
                         </select>
                         <div className="flex flex-col gap-2">
                             <Link
-                                to="/patients"
+                                to="/app/clients"
                                 className="text-left text-xs text-primary underline-offset-4 hover:underline"
                             >
-                                Create new patient
-                            </Link>
-                            <Link className="text-left text-xs text-primary underline-offset-4 hover:underline" to="/patients">
-                                Manage patients
+                                Create new profile
                             </Link>
                         </div>
-                        {patientOptions.length === 0 && (
-                            <p className="text-xs text-text-muted">No patients saved yet. Visit the Patients tab to onboard someone new.</p>
-                        )}
                     </div>
                 );
 
@@ -227,13 +261,13 @@ export const CaseWizard = () => {
 
                         <button
                             type="button"
-                            onClick={() => { setSelectedTest("gait"); handleNext(); }}
-                            className={`flex flex-col items-center gap-4 rounded-3xl border p-6 transition hover:scale-105 ${selectedTest === "gait" ? "border-primary bg-primary/10" : "border-white/10 bg-surface/50"}`}
+                            onClick={() => { setSelectedTest("movement"); handleNext(); }}
+                            className={`flex flex-col items-center gap-4 rounded-3xl border p-6 transition hover:scale-105 ${selectedTest === "movement" ? "border-primary bg-primary/10" : "border-white/10 bg-surface/50"}`}
                         >
                             <Footprints className="h-8 w-8 text-primary" />
                             <div className="text-center">
-                                <p className="font-semibold text-text">Gait Analysis</p>
-                                <p className="text-xs text-text-muted">Ground & Treadmill</p>
+                                <p className="font-semibold text-text">Movement</p>
+                                <p className="text-xs text-text-muted">Gait & Running</p>
                             </div>
                         </button>
 
@@ -245,7 +279,7 @@ export const CaseWizard = () => {
                             <FileText className="h-8 w-8 text-primary" />
                             <div className="text-center">
                                 <p className="font-semibold text-text">MSK Screen</p>
-                                <p className="text-xs text-text-muted">Written summary</p>
+                                <p className="text-xs text-text-muted">Clinical exams</p>
                             </div>
                         </button>
                     </div>
@@ -270,12 +304,12 @@ export const CaseWizard = () => {
                         </div>
                     );
                 }
-                if (selectedTest === "gait") {
+                if (selectedTest === "movement") {
                     return (
                         <div className="space-y-8">
                             <div className="space-y-4">
                                 <MediaSection
-                                    label="Ground (Min 1 total)"
+                                    label="Ground (Slow-mo recommended)"
                                     files={groundGroup.files}
                                     dropzone={{ getRootProps: groundGroup.getRootProps, getInputProps: groundGroup.getInputProps }}
                                     removeFile={groundGroup.remove}
@@ -283,14 +317,14 @@ export const CaseWizard = () => {
                                 <textarea
                                     {...register("groundNotes")}
                                     rows={2}
-                                    placeholder="Ground gait observations"
+                                    placeholder="Ground observations"
                                     className="w-full rounded-3xl border border-white/10 bg-transparent px-4 py-3 text-sm text-text outline-none focus:border-primary"
                                 />
                             </div>
                             <div className="h-px bg-white/5" />
                             <div className="space-y-4">
                                 <MediaSection
-                                    label="Treadmill (Min 1 total)"
+                                    label="Treadmill (Steady view)"
                                     files={treadmillGroup.files}
                                     dropzone={{ getRootProps: treadmillGroup.getRootProps, getInputProps: treadmillGroup.getInputProps }}
                                     removeFile={treadmillGroup.remove}
@@ -329,9 +363,9 @@ export const CaseWizard = () => {
                     <div className="space-y-4">
                         <p className="text-sm text-text-muted">Review before submission.</p>
                         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                            <Panel title="Patient">{patients.find((p) => p.id === watchValues.patientId)?.name}</Panel>
+                            <Panel title="Profile">{profiles.find((p) => p.id === watchValues.profileId)?.fullName}</Panel>
                             {selectedTest === "posture" && <Panel title="Posture notes">{watchValues.postureNotes}</Panel>}
-                            {selectedTest === "gait" && (
+                            {selectedTest === "movement" && (
                                 <>
                                     <Panel title="Ground notes">{watchValues.groundNotes}</Panel>
                                     <Panel title="Treadmill notes">{watchValues.treadmillNotes}</Panel>
@@ -340,15 +374,15 @@ export const CaseWizard = () => {
                             {selectedTest === "msk" && <Panel title="MSK data logged">Detailed clinical observations recorded.</Panel>}
                         </div>
                         <p className="text-xs text-text-muted">
-                            {selectedTest === 'gait' ? `Gait: ${groundGroup.files.length} ground, ${treadmillGroup.files.length} treadmill` : ''}
-                            {selectedTest === 'posture' ? `Posture: ${postureGroup.files.length} photos` : ''}
+                            {selectedTest === 'movement' ? `Videos: ${groundGroup.files.length} ground, ${treadmillGroup.files.length} treadmill` : ''}
+                            {selectedTest === 'posture' ? `Photos: ${postureGroup.files.length} ready` : ''}
                         </p>
                         <button
                             type="button"
                             onClick={handleSubmit(onSubmit)}
                             className="w-full rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-semibold text-white transition hover:scale-105"
                         >
-                            Submit case
+                            Confirm & Submit
                         </button>
                     </div>
                 );
@@ -410,7 +444,7 @@ export const CaseWizard = () => {
                     ) : null}
                 </div>
             </div>
-            {submitted && <p className="text-xs text-success text-center">Case submitted - review it in the case inbox.</p>}
+            {submitted && <p className="text-xs text-success text-center">Analysis submitted successfully - check the analysis view for updates.</p>}
         </section>
     );
 };
@@ -429,7 +463,7 @@ const MediaSection = ({
     removeFile,
 }: {
     label: string;
-    files: string[];
+    files: { name: string; file?: File }[];
     dropzone: {
         getRootProps: () => any;
         getInputProps: () => any;
@@ -461,13 +495,13 @@ const MediaSection = ({
                         >
                             {files[index] ? (
                                 <>
-                                    <p className="truncate font-semibold text-text">{files[index]}</p>
+                                    <p className="truncate font-semibold text-text">{files[index].name}</p>
                                     <button
                                         type="button"
                                         className="text-[11px] text-primary underline text-left"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            removeFile(files[index]);
+                                            removeFile(files[index].name);
                                         }}
                                     >
                                         Remove

@@ -1,76 +1,67 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
 import type { Report } from "../../types";
+import { FileText, CheckCircle } from "lucide-react";
 
 export const AdminCaseDetail = () => {
   const { caseId } = useParams<{ caseId: string }>();
-  const selected = useAppStore((state) => state.cases.find((item) => item.id === caseId));
-  const patients = useAppStore((state) => state.patients);
+  const assessment = useAppStore((state) => state.assessments.find((a) => a.id === caseId));
+  const profiles = useAppStore((state) => state.profiles);
   const users = useAppStore((state) => state.users);
   const reports = useAppStore((state) => state.reports);
-  const updateCase = useAppStore((state) => state.updateCase);
+  const updateAssessment = useAppStore((state) => state.updateAssessment);
   const addReport = useAppStore((state) => state.addReport);
   const navigate = useNavigate();
 
-  const report = useMemo(() => reports.find((r) => r.caseId === caseId), [reports, caseId]);
+  const report = useMemo(() => reports.find((r) => r.assessmentIds.includes(caseId || "")), [reports, caseId]);
 
-  const [reportSections, setReportSections] = useState<Record<string, string>>({
-    summary: "",
-    observations: "",
+  const [reportData, setReportData] = useState({
+    summaryText: "",
     recommendations: "",
   });
 
-  useMemo(() => {
+  useEffect(() => {
     if (report) {
-      setReportSections(report.sections);
-    } else {
-      setReportSections({
-        summary: "",
-        observations: "",
-        recommendations: "",
+      setReportData({
+        summaryText: report.summaryText,
+        recommendations: report.recommendations,
       });
     }
-  }, [report, caseId]);
+  }, [report]);
 
-  const patient = selected ? patients.find((item) => item.id === selected.patientId) : null;
-  const admins = users.filter((user) => user.role === "admin");
-  const timeline = ["Submitted", "Assigned", "In Review", "Report Ready"];
-  const currentIndex = selected ? Math.max(0, timeline.indexOf(selected.status)) : 0;
-
-  const mediaGroups = useMemo(() => {
-    if (!selected) return [];
-    return Object.entries(selected.media).map(([label, slots]) => ({
-      label,
-      content: slots.map((slot) => slot.files.length ? slot.files.join(", ") : "No uploads"),
-    }));
-  }, [selected]);
+  const profile = assessment ? profiles.find((p) => p.id === assessment.profileId) : null;
+  const clinician = assessment ? users.find((u) => u.uid === assessment.createdBy) : null;
 
   const handleDeliverReport = async () => {
-    if (!caseId || !selected) return;
+    if (!caseId || !assessment || !profile) return;
 
-    // Save report
     const newReport: Report = {
-      caseId,
-      physiotherapistId: selected.physiotherapistId,
-      sections: reportSections,
-      status: "Report Ready",
-      updatedAt: new Date().toISOString(),
+      id: report?.id || `report-${crypto.randomUUID().slice(0, 8)}`,
+      profileId: profile.id,
+      assessmentIds: [caseId],
+      createdBy: clinician?.uid || "",
+      createdAt: report?.createdAt || new Date().toISOString(),
+      templateId: null,
+      summaryText: reportData.summaryText,
+      recommendations: reportData.recommendations,
+      pdf: { url: "", path: "" },
+      share: { enabled: false, token: null, expiresAt: null },
     };
 
     try {
       await addReport(newReport);
-      await updateCase(caseId, { status: "Report Ready" });
+      await updateAssessment(caseId, { status: "final" });
       alert("Report delivered successfully.");
     } catch (error) {
       console.error("Delivery failed", error);
     }
   };
 
-  if (!selected) {
+  if (!assessment) {
     return (
       <section className="rounded-3xl bg-surface/70 p-6 text-text">
-        <p>Case not found.</p>
+        <p>Assessment not found.</p>
         <button onClick={() => navigate("/admin/cases")} className="mt-4 text-sm text-primary underline">
           Back
         </button>
@@ -79,104 +70,127 @@ export const AdminCaseDetail = () => {
   }
 
   return (
-    <section className="space-y-6 animate-fade-in">
-      <div className="rounded-3xl bg-surface/70 p-6 shadow-soft-light">
-        <header className="flex flex-col gap-1">
-          <p className="text-xs uppercase tracking-[0.4em] text-text-muted">{selected.id}</p>
-          <h1 className="text-2xl font-semibold text-text">{selected.title}</h1>
-          <p className="text-sm text-text-muted">{patient?.name}</p>
+    <section className="space-y-6 animate-fade-in pb-20">
+      <div className="rounded-3xl bg-surface/70 p-6 shadow-soft-light transition hover:shadow-lg">
+        <header className="flex flex-col gap-1 border-b border-white/5 pb-4">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-text-muted font-bold">{assessment.id}</p>
+          <h1 className="text-3xl font-black text-text uppercase italic tracking-tighter">{assessment.type} Analysis</h1>
+          <p className="text-sm text-text-muted flex items-center gap-2">
+            <span className="font-bold text-primary">{profile?.fullName}</span>
+            <span className="opacity-30">•</span>
+            <span>Created by {clinician?.name}</span>
+          </p>
         </header>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="space-y-4 rounded-3xl border border-white/10 bg-background/30 p-5">
-            <h2 className="text-sm font-semibold text-text">Media viewer</h2>
-            <div className="space-y-3">
-              {mediaGroups.map((group) => (
-                <article key={group.label} className="rounded-2xl border border-white/5 bg-surface/80 p-3 text-xs text-text-muted">
-                  <p className="text-[10px] uppercase tracking-[0.4em] text-text-muted">{group.label}</p>
-                  <p className="mt-2 text-sm text-text">{group.content.join(" • ")}</p>
-                </article>
+        <div className="mt-8 grid gap-8 lg:grid-cols-2">
+          {/* Media Viewer */}
+          <div className="space-y-6 rounded-[2rem] border border-white/10 bg-background/30 p-6">
+            <h2 className="text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Media evidence
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {assessment.media.photos.map((photo, i) => (
+                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-surface shadow-lg">
+                  <img src={photo.url} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" alt={`View ${photo.view}`} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                    <p className="text-[10px] font-bold text-white uppercase tracking-widest">{photo.view}</p>
+                  </div>
+                </div>
+              ))}
+              {assessment.media.videos.map((video, i) => (
+                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-surface shadow-lg">
+                  <video src={video.url} className="h-full w-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                    <p className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> {video.angle} Video
+                    </p>
+                  </div>
+                </div>
               ))}
             </div>
-            <article className="rounded-2xl border border-white/10 bg-background/20 p-4">
-              <p className="text-xs uppercase tracking-[0.4em] text-text-muted">MSK summary</p>
-              <p className="mt-2 text-sm text-text">{selected.mskSummary}</p>
-            </article>
+            {assessment.notes && (
+              <article className="rounded-2xl border border-white/10 bg-black/20 p-5 mt-4">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-text-muted font-bold mb-2">Physio Notes</p>
+                <p className="text-sm text-text italic leading-relaxed">"{assessment.notes}"</p>
+              </article>
+            )}
           </div>
 
-          <div className="space-y-4 rounded-3xl border border-white/10 bg-background/30 p-5">
-            <h2 className="text-sm font-semibold text-text">Status & assignment</h2>
-            <div className="flex flex-wrap gap-3">
-              {timeline.map((step) => (
-                <span
-                  key={step}
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold ${timeline.indexOf(step) <= currentIndex ? "bg-primary/20 text-primary" : "bg-white/5 text-text-muted"
-                    }`}
-                >
-                  {step}
-                </span>
+          {/* Assessment Data */}
+          <div className="space-y-6 rounded-[2rem] border border-white/10 bg-background/30 p-6">
+            <h2 className="text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Technical metrics
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-surface/50 p-4 border border-white/5">
+                <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Status</p>
+                <p className={`mt-1 text-sm font-bold uppercase italic ${assessment.status === 'final' ? 'text-success' : 'text-primary'}`}>{assessment.status}</p>
+              </div>
+              {Object.entries(assessment.metricsSummary).map(([key, val]) => (
+                <div key={key} className="rounded-2xl bg-surface/50 p-4 border border-white/5">
+                  <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">{key}</p>
+                  <p className="mt-1 text-sm font-bold text-text">{String(val)}</p>
+                </div>
               ))}
             </div>
-            <div className="space-y-2 pt-3">
-              <label className="text-[11px] text-text-muted">Admin</label>
-              <select
-                value={selected.expertId ?? ""}
-                onChange={(event) =>
-                  updateCase(selected.id, {
-                    expertId: event.target.value || null,
-                  })
-                }
-                className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none focus:border-primary"
-              >
-                <option value="">Assign admin</option>
-                {admins.map((admin) => (
-                  <option key={admin.id} value={admin.id}>
-                    {admin.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[11px] text-text-muted">Status</label>
-              <select
-                value={selected.status}
-                onChange={(event) => updateCase(selected.id, { status: event.target.value as typeof selected.status })}
-                className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-text outline-none focus:border-primary"
-              >
-                {timeline.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+
+            <div className="h-px bg-white/5" />
+
+            <div className="space-y-4">
+              <h3 className="text-[10px] uppercase tracking-widest text-text-muted font-bold">MSK Observations</h3>
+              <div className="text-sm text-text bg-surface/30 p-4 rounded-2xl border border-white/5 min-h-[100px]">
+                {assessment.type === 'msk' ? 'Detailed clinical exam recorded.' : 'N/A for this assessment type.'}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-3xl bg-surface/70 p-6 shadow-soft-light">
-        <h2 className="text-xl font-semibold text-text">Generate report</h2>
-        <p className="text-sm text-text-muted">Write professional findings and recommendations.</p>
+      {/* Report Editor */}
+      <div className="rounded-3xl bg-surface/70 p-8 shadow-soft-light">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <FileText className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-text tracking-tight">Clinical Report Engine</h2>
+            <p className="text-sm text-text-muted">Draft clinical findings and expert recommendations for the client.</p>
+          </div>
+        </div>
 
-        <div className="mt-6 space-y-4">
-          {Object.keys(reportSections).map((key) => (
-            <div key={key} className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.2em] text-text-muted font-bold">{key}</label>
-              <textarea
-                value={reportSections[key]}
-                onChange={(e) => setReportSections((prev) => ({ ...prev, [key]: e.target.value }))}
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-background/40 px-4 py-3 text-sm text-text outline-none focus:border-primary transition"
-                placeholder={`Enter ${key}...`}
-              />
-            </div>
-          ))}
+        <div className="grid gap-8">
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-black px-1">Summary Findings</label>
+            <textarea
+              value={reportData.summaryText}
+              onChange={(e) => setReportData((prev) => ({ ...prev, summaryText: e.target.value }))}
+              rows={4}
+              className="w-full rounded-2xl border border-white/10 bg-background/40 px-5 py-4 text-sm text-text outline-none focus:border-primary transition focus:ring-4 focus:ring-primary/10"
+              placeholder="Describe what you observed in the posture or movement analysis..."
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-black px-1">Recommendations & Correctives</label>
+            <textarea
+              value={reportData.recommendations}
+              onChange={(e) => setReportData((prev) => ({ ...prev, recommendations: e.target.value }))}
+              rows={4}
+              className="w-full rounded-2xl border border-white/10 bg-background/40 px-5 py-4 text-sm text-text outline-none focus:border-primary transition focus:ring-4 focus:ring-primary/10"
+              placeholder="Prescribe specific exercises or behavioral changes..."
+            />
+          </div>
 
           <button
             onClick={handleDeliverReport}
-            className="w-full rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-sm font-semibold text-white transition hover:scale-[1.02] shadow-lg shadow-primary/20"
+            disabled={!reportData.summaryText || !reportData.recommendations}
+            className="group relative h-14 w-full overflow-hidden rounded-2xl bg-primary px-6 text-sm font-bold text-white transition-all hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/20 disabled:opacity-40"
           >
-            Deliver Report to Physiotherapist
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              Deliver Report to Client
+              <CheckCircle className="h-4 w-4" />
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary transition-transform duration-500 group-hover:scale-110" />
           </button>
         </div>
       </div>
