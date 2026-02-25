@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 
@@ -30,16 +30,24 @@ const strengthScore = (value: string) => {
 
 export const AcceptInvitePage = () => {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const inviteId = searchParams.get("inviteId");
     const orgId = searchParams.get("orgId");
 
     const { register, handleSubmit, watch, formState } = useForm<AcceptForm>({
         resolver: zodResolver(acceptSchema),
     });
-    const { acceptInvite, isLoadingAuth, authError } = useAppStore();
+    const { acceptInvite, isLoadingAuth, authUser, authError } = useAppStore();
     const [isSaved, setIsSaved] = useState(false);
     const password = watch("password");
     const strength = strengthScore(password || "");
+
+    useEffect(() => {
+        if (authUser && isSaved) {
+            const target = authUser.isAdmin ? "/admin/home" : "/app/dashboard";
+            navigate(target);
+        }
+    }, [authUser, isSaved, navigate]);
 
     const onSubmit = async (values: AcceptForm) => {
         if (!inviteId || !orgId) return;

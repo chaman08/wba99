@@ -239,6 +239,9 @@ export interface AppState {
   addReport: (report: Report) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   updateOrganisation: (details: Partial<Organisation>) => Promise<void>;
+  addCategory: (name: string, description?: string) => Promise<void>;
+  addGroup: (name: string, categoryId: string) => Promise<void>;
+  updateOrganisationSettings: (settings: Partial<Organisation["settings"]>) => Promise<void>;
 }
 
 const initialTheme = getStoredTheme();
@@ -752,5 +755,69 @@ export const useAppStore = create<AppState>((set, get) => {
         throw error;
       }
     },
+    addCategory: async (name: string, description?: string) => {
+      const authUser = get().authUser;
+      if (!authUser) throw new Error("Authenticated user required");
+      const orgId = authUser.orgId;
+
+      const categoryId = `cat-${crypto.randomUUID().slice(0, 8)}`;
+      const now = new Date().toISOString();
+
+      try {
+        await setDoc(doc(firebaseDB, "categories", categoryId), {
+          id: categoryId,
+          orgId,
+          name,
+          description,
+          createdAt: now,
+          createdBy: authUser.uid
+        });
+      } catch (error) {
+        console.error("Failed to add category", error);
+        throw error;
+      }
+    },
+    addGroup: async (name: string, categoryId: string) => {
+      const authUser = get().authUser;
+      if (!authUser) throw new Error("Authenticated user required");
+      const orgId = authUser.orgId;
+
+      const groupId = `group-${crypto.randomUUID().slice(0, 8)}`;
+      const now = new Date().toISOString();
+
+      try {
+        await setDoc(doc(firebaseDB, "groups", groupId), {
+          id: groupId,
+          orgId,
+          name,
+          categoryId,
+          assignedUserIds: [],
+          profileCount: 0,
+          createdAt: now,
+          createdBy: authUser.uid
+        });
+      } catch (error) {
+        console.error("Failed to add group", error);
+        throw error;
+      }
+    },
+    updateOrganisationSettings: async (settings: Partial<Organisation["settings"]>) => {
+      const authUser = get().authUser;
+      if (!authUser) throw new Error("Authenticated user required");
+      const orgId = authUser.orgId;
+      const currentOrg = get().organisation;
+
+      try {
+        await updateDoc(doc(firebaseDB, "orgs", orgId), {
+          settings: {
+            ...currentOrg?.settings,
+            ...settings
+          }
+        });
+      } catch (error) {
+        console.error("Failed to update organisation settings", error);
+        throw error;
+      }
+    }
   };
 });

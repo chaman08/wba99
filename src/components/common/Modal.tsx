@@ -36,8 +36,8 @@ export const Modal = ({
                 className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
                 onClick={onClose}
             />
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-10 animate-in zoom-in-95 fade-in duration-200 overflow-hidden">
-                <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-10 animate-in zoom-in-95 fade-in duration-200 overflow-hidden mx-2 sm:mx-0">
+                <div className="px-5 sm:px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0">
                     <h3 className="text-xl font-bold text-[#0F172A]">{title}</h3>
                     <button
                         onClick={onClose}
@@ -47,12 +47,12 @@ export const Modal = ({
                     </button>
                 </div>
 
-                <div className="px-8 py-8 overflow-y-auto max-h-[70vh]">
+                <div className="px-5 sm:px-8 py-8 overflow-y-auto max-h-[70vh]">
                     {children}
                 </div>
 
                 {footer && (
-                    <div className="px-8 py-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 sticky bottom-0">
+                    <div className="px-5 sm:px-8 py-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 sticky bottom-0">
                         {footer}
                     </div>
                 )}

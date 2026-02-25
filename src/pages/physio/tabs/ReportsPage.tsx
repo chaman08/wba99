@@ -6,7 +6,6 @@ import {
     Calendar,
     User as UserIcon,
     ArrowLeft,
-    Share2,
     Printer,
     Target,
     ClipboardCheck,
@@ -19,6 +18,7 @@ export const ReportsPage = () => {
     const profiles = useAppStore((state) => state.profiles);
     const assessments = useAppStore((state) => state.assessments);
     const organisation = useAppStore((state) => state.organisation);
+    const reports = useAppStore((state) => state.reports);
 
     const [search, setSearch] = useState("");
     const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
@@ -41,6 +41,10 @@ export const ReportsPage = () => {
         assessments.find((a) => a.id === selectedAssessmentId)
         , [assessments, selectedAssessmentId]);
 
+    const report = useMemo(() =>
+        reports.find((r) => r.assessmentIds.includes(selectedAssessmentId || ""))
+        , [reports, selectedAssessmentId]);
+
     const profile = useMemo(() =>
         profiles.find((p) => p.id === selectedAssessment?.profileId)
         , [profiles, selectedAssessment]);
@@ -56,18 +60,34 @@ export const ReportsPage = () => {
                         <ArrowLeft className="h-4 w-4" />
                         Back to Reports
                     </button>
-                    <div className="flex items-center gap-3">
-                        <button className="flex items-center gap-2 px-6 py-3 bg-white/5 text-white rounded-2xl font-bold hover:bg-white/10 transition-all">
-                            <Share2 className="h-4 w-4" /> Share
-                        </button>
-                        <button className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
+                    <div className="flex items-center gap-3 print:hidden">
+                        <button
+                            onClick={() => window.print()}
+                            className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all"
+                        >
                             <Printer className="h-4 w-4" /> Print PDF
                         </button>
                     </div>
                 </header>
 
+                <style>{`
+                    @media print {
+                        @page {
+                            margin: 0;
+                            size: auto;
+                        }
+                        body {
+                            background: white !important;
+                            color: black !important;
+                        }
+                        .print\\:hidden {
+                            display: none !important;
+                        }
+                    }
+                `}</style>
+
                 {/* Report Preview Surface */}
-                <div className="bg-white text-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden min-h-[800px] flex flex-col">
+                <div className="bg-white text-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden min-h-[800px] flex flex-col print:rounded-none print:shadow-none">
                     {/* Branded Header */}
                     <div className="p-12 bg-slate-50 border-b border-slate-200 flex justify-between items-start">
                         <div className="space-y-4">
@@ -114,12 +134,35 @@ export const ReportsPage = () => {
                             </div>
                         </section>
 
+                        {/* Expert Findings & Recommendations */}
+                        {report && (
+                            <section className="space-y-10 pb-12 border-b border-slate-100">
+                                {report.summaryText && (
+                                    <div className="space-y-4">
+                                        <h3 className="text-xl font-black uppercase italic flex items-center gap-3 border-l-4 border-primary pl-4">
+                                            <Target className="h-6 w-6 text-primary" /> Expert Findings
+                                        </h3>
+                                        <p className="text-slate-700 leading-relaxed text-lg whitespace-pre-wrap pl-7">{report.summaryText}</p>
+                                    </div>
+                                )}
+
+                                {report.recommendations && (
+                                    <div className="space-y-4">
+                                        <h3 className="text-xl font-black uppercase italic flex items-center gap-3 border-l-4 border-secondary pl-4">
+                                            <ClipboardCheck className="h-6 w-6 text-secondary" /> Clinical Recommendations
+                                        </h3>
+                                        <p className="text-slate-700 leading-relaxed text-lg whitespace-pre-wrap pl-7">{report.recommendations}</p>
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
                         {/* Assessment Blocks */}
                         <div className="space-y-12">
                             {selectedAssessment.media.photos.length > 0 && (
                                 <section className="space-y-6">
                                     <h3 className="text-xl font-black uppercase italic flex items-center gap-3 border-l-4 border-primary pl-4">
-                                        <Target className="h-6 w-6 text-primary" /> Postural Analysis
+                                        <Target className="h-6 w-6 text-primary" /> Photographic Evidence
                                     </h3>
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                         {selectedAssessment.media.photos.map((p, idx) => (

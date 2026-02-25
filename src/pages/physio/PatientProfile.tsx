@@ -68,31 +68,31 @@ export const PatientProfile = () => {
       </button>
 
       {/* Hero Header */}
-      <section className="bg-surface/50 border border-white/10 rounded-[2.5rem] p-8 lg:p-10 shadow-xl relative overflow-hidden">
+      <section className="bg-surface/50 border border-white/10 rounded-2xl md:rounded-[2.5rem] p-5 md:p-10 shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
             <div className="h-24 w-24 rounded-[2rem] bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
               <User className="h-10 w-10 text-primary" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-3xl lg:text-4xl font-bold tracking-tight">{profile.fullName}</h2>
-              <div className="flex flex-wrap gap-4 text-sm text-text-muted">
+              <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-center lg:text-left">{profile.fullName}</h2>
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2 text-xs md:text-sm text-text-muted">
                 <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" /> Age: {age}</span>
-                <span className="flex items-center gap-1.5"><User className="h-4 w-4" /> {profile.sex || 'Not specified'}</span>
+                <span className="flex items-center gap-1.5 text-xs"><User className="h-4 w-4" /> {profile.sex || 'Not specified'}</span>
                 <span className="flex items-center gap-1.5"><Phone className="h-4 w-4" /> {profile.phone}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <button
               onClick={() => navigate(`/app/cases/new?clientId=${profile.id}`)}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl md:rounded-2xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 flex-1 sm:flex-none"
             >
               <Plus className="h-5 w-5" />
               Start Assessment
             </button>
-            <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all" onClick={() => navigate('/app/reports')}>
+            <button className="flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl font-bold hover:bg-white/10 transition-all flex-1 sm:flex-none" onClick={() => navigate('/app/reports')}>
               <FileText className="h-5 w-5" />
               View Reports
             </button>
@@ -162,8 +162,8 @@ export const PatientProfile = () => {
                         {lastAssessment && <span className="text-[10px] font-bold text-text-muted">{new Date(typeof lastAssessment.updatedAt === 'string' ? lastAssessment.updatedAt : lastAssessment.updatedAt.seconds * 1000).toLocaleDateString()}</span>}
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted font-bold uppercase tracking-widest mb-1">{summary.label}</p>
-                        <p className="font-bold uppercase tracking-tighter italic">{lastAssessment ? lastAssessment.status : "No Data Yet"}</p>
+                        <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mb-1">{summary.label}</p>
+                        <p className="text-xs md:text-sm font-bold uppercase tracking-tighter italic">{lastAssessment ? lastAssessment.status : "No Data Yet"}</p>
                       </div>
                       {lastAssessment ? (
                         <button onClick={() => navigate(`/app/cases/${lastAssessment.id}`)} className="text-xs font-bold text-primary flex items-center gap-1 hover:underline">

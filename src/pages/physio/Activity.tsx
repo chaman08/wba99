@@ -29,9 +29,9 @@ export const PhysioActivity = () => {
 
     return (
         <div className="space-y-6 animate-fade-in pb-12">
-            <header className="rounded-3xl bg-surface/70 p-6 shadow-soft-light border border-white/5">
-                <h2 className="text-2xl font-semibold text-text">Activity History</h2>
-                <p className="text-sm text-text-muted mt-1">Track all your submitted analyses and report statuses.</p>
+            <header className="rounded-2xl md:rounded-3xl bg-surface/70 p-4 md:p-6 shadow-soft-light border border-white/5">
+                <h2 className="text-xl md:text-2xl font-semibold text-text">Activity History</h2>
+                <p className="text-xs md:text-sm text-text-muted mt-1">Track all your submitted analyses and report statuses.</p>
             </header>
 
             <div className="grid gap-4">
@@ -48,7 +48,7 @@ export const PhysioActivity = () => {
                         <article
                             key={item.id}
                             onClick={() => navigate(`/app/cases/${item.id}`)}
-                            className="group cursor-pointer rounded-3xl border border-white/5 bg-surface/70 p-5 transition duration-200 hover:border-primary/40 hover:bg-surface/90 hover:shadow-soft-light flex flex-col md:flex-row md:items-center justify-between gap-4"
+                            className="group cursor-pointer rounded-2xl md:rounded-3xl border border-white/5 bg-surface/70 p-4 md:p-5 transition duration-200 hover:border-primary/40 hover:bg-surface/90 hover:shadow-soft-light flex flex-col md:flex-row md:items-center justify-between gap-4"
                         >
                             <div className="flex items-start gap-4 flex-1">
                                 <div className={`mt-1 p-2.5 rounded-2xl bg-white/5 text-text-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors`}>

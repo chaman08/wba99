@@ -209,18 +209,21 @@ export const MSKAssessmentForm = ({ register }: { register: any }) => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap gap-2 overflow-x-auto pb-4 scrollbar-hide border-b border-white/5">
-                {sections.map((s, i) => (
-                    <button
-                        key={s}
-                        type="button"
-                        onClick={() => setActiveTab(i)}
-                        className={`whitespace-nowrap rounded-xl px-4 py-2 text-[11px] font-bold uppercase tracking-widest transition duration-200 ${activeTab === i ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-text-muted hover:bg-white/10"
-                            }`}
-                    >
-                        {s}
-                    </button>
-                ))}
+            <div className="relative group">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 overflow-x-auto pb-4 scrollbar-hide border-b border-white/5 pr-4">
+                    {sections.map((s, i) => (
+                        <button
+                            key={s}
+                            type="button"
+                            onClick={() => setActiveTab(i)}
+                            className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest transition duration-200 ${activeTab === i ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-text-muted hover:bg-white/10"
+                                }`}
+                        >
+                            {s}
+                        </button>
+                    ))}
+                </div>
+                <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-surface/80 to-transparent pointer-events-none sm:hidden" />
             </div>
 
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">

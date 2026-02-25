@@ -36,11 +36,12 @@ export const AdminCaseDetail = () => {
   const handleDeliverReport = async () => {
     if (!caseId || !assessment || !profile) return;
 
+    const reportId = `report-${caseId}`;
     const newReport: Report = {
-      id: report?.id || `report-${crypto.randomUUID().slice(0, 8)}`,
+      id: reportId,
       profileId: profile.id,
       assessmentIds: [caseId],
-      createdBy: clinician?.uid || "",
+      createdBy: "", // Store will overwrite with current authUser.uid
       createdAt: report?.createdAt || new Date().toISOString(),
       templateId: null,
       summaryText: reportData.summaryText,
@@ -53,8 +54,10 @@ export const AdminCaseDetail = () => {
       await addReport(newReport);
       await updateAssessment(caseId, { status: "final" });
       alert("Report delivered successfully.");
+      navigate("/admin/cases");
     } catch (error) {
       console.error("Delivery failed", error);
+      alert("Failed to deliver report. Please try again.");
     }
   };
 
@@ -71,38 +74,38 @@ export const AdminCaseDetail = () => {
 
   return (
     <section className="space-y-6 animate-fade-in pb-20">
-      <div className="rounded-3xl bg-surface/70 p-6 shadow-soft-light transition hover:shadow-lg">
-        <header className="flex flex-col gap-1 border-b border-white/5 pb-4">
-          <p className="text-[10px] uppercase tracking-[0.4em] text-text-muted font-bold">{assessment.id}</p>
-          <h1 className="text-3xl font-black text-text uppercase italic tracking-tighter">{assessment.type} Analysis</h1>
-          <p className="text-sm text-text-muted flex items-center gap-2">
+      <div className="rounded-2xl md:rounded-3xl bg-surface/70 p-4 md:p-6 shadow-soft-light transition hover:shadow-lg">
+        <header className="flex flex-col gap-1 border-b border-white/5 pb-4 text-center md:text-left">
+          <p className="text-[9px] md:text-[10px] uppercase tracking-[0.4em] text-text-muted font-bold">{assessment.id}</p>
+          <h1 className="text-2xl md:text-3xl font-black text-text uppercase italic tracking-tighter">{assessment.type} Analysis</h1>
+          <p className="text-xs md:text-sm text-text-muted flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2">
             <span className="font-bold text-primary">{profile?.fullName}</span>
-            <span className="opacity-30">•</span>
-            <span>Created by {clinician?.name}</span>
+            <span className="opacity-30 hidden md:block">•</span>
+            <span className="text-[11px] md:text-sm">Created by {clinician?.name}</span>
           </p>
         </header>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-2">
           {/* Media Viewer */}
-          <div className="space-y-6 rounded-[2rem] border border-white/10 bg-background/30 p-6">
-            <h2 className="text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
+          <div className="space-y-6 rounded-2xl md:rounded-[2rem] border border-white/10 bg-background/30 p-4 md:p-6">
+            <h2 className="text-[10px] md:text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Media evidence
             </h2>
             <div className="grid grid-cols-2 gap-4">
               {assessment.media.photos.map((photo, i) => (
-                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-surface shadow-lg">
+                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-2xl md:rounded-3xl bg-surface shadow-lg">
                   <img src={photo.url} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" alt={`View ${photo.view}`} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-                    <p className="text-[10px] font-bold text-white uppercase tracking-widest">{photo.view}</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3 md:p-4">
+                    <p className="text-[9px] md:text-[10px] font-bold text-white uppercase tracking-widest">{photo.view}</p>
                   </div>
                 </div>
               ))}
               {assessment.media.videos.map((video, i) => (
-                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-surface shadow-lg">
+                <div key={i} className="group relative aspect-[3/4] overflow-hidden rounded-2xl md:rounded-3xl bg-surface shadow-lg">
                   <video src={video.url} className="h-full w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                    <p className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> {video.angle} Video
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 md:p-4">
+                    <p className="text-[9px] md:text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-primary animate-pulse" /> {video.angle} Video
                     </p>
                   </div>
                 </div>
@@ -117,8 +120,8 @@ export const AdminCaseDetail = () => {
           </div>
 
           {/* Assessment Data */}
-          <div className="space-y-6 rounded-[2rem] border border-white/10 bg-background/30 p-6">
-            <h2 className="text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
+          <div className="space-y-6 rounded-2xl md:rounded-[2rem] border border-white/10 bg-background/30 p-4 md:p-6">
+            <h2 className="text-[10px] md:text-sm font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Technical metrics
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -147,14 +150,14 @@ export const AdminCaseDetail = () => {
       </div>
 
       {/* Report Editor */}
-      <div className="rounded-3xl bg-surface/70 p-8 shadow-soft-light">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <FileText className="h-6 w-6" />
+      <div className="rounded-2xl md:rounded-3xl bg-surface/70 p-5 md:p-8 shadow-soft-light">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 md:mb-8 text-center md:text-left">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto md:mx-0">
+            <FileText className="h-5 w-5 md:h-6 md:h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-text tracking-tight">Clinical Report Engine</h2>
-            <p className="text-sm text-text-muted">Draft clinical findings and expert recommendations for the client.</p>
+            <h2 className="text-xl md:text-2xl font-bold text-text tracking-tight">Clinical Report Engine</h2>
+            <p className="text-xs md:text-sm text-text-muted">Draft clinical findings and expert recommendations for the client.</p>
           </div>
         </div>
 
@@ -184,7 +187,7 @@ export const AdminCaseDetail = () => {
           <button
             onClick={handleDeliverReport}
             disabled={!reportData.summaryText || !reportData.recommendations}
-            className="group relative h-14 w-full overflow-hidden rounded-2xl bg-primary px-6 text-sm font-bold text-white transition-all hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/20 disabled:opacity-40"
+            className="group relative h-12 md:h-14 w-full overflow-hidden rounded-xl md:rounded-2xl bg-primary px-6 text-xs md:text-sm font-bold text-white transition-all hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/20 disabled:opacity-40"
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
               Deliver Report to Client

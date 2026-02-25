@@ -128,16 +128,16 @@ export const PatientsPage = () => {
       {/* Add Profile Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl bg-surface border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-2xl bg-surface border border-white/10 rounded-2xl md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 text-text-muted transition-colors"
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-white/5 text-text-muted transition-colors z-10"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5 md:h-6 md:h-6" />
             </button>
 
-            <header className="mb-8">
-              <h3 className="text-2xl font-bold">Add New Profile</h3>
+            <header className="mb-6 md:mb-8">
+              <h3 className="text-xl md:text-2xl font-bold">Add New Profile</h3>
               <p className="text-sm text-text-muted">Create a new profile to track clinical progress.</p>
             </header>
 

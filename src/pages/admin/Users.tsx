@@ -44,8 +44,8 @@ export const AdminUsers = () => {
       header: "Role",
       render: (user: User) => (
         <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-inset ${user.role === 'admin'
-            ? 'bg-purple-50 text-purple-700 ring-purple-600/20'
-            : 'bg-blue-50 text-blue-700 ring-blue-600/20'
+          ? 'bg-purple-50 text-purple-700 ring-purple-600/20'
+          : 'bg-blue-50 text-blue-700 ring-blue-600/20'
           }`}>
           {user.role === 'admin' ? <Shield className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
           <span>{getRoleLabel(user.role)}</span>

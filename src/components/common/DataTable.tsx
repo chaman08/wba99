@@ -145,17 +145,17 @@ export function DataTable<T extends Record<string, any>>({
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <span className="text-xs text-slate-500">
+            <div className="px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                    <span className="text-[10px] sm:text-xs text-slate-500 text-center sm:text-left">
                         Showing <span className="font-semibold text-[#0F172A]">{(currentPage - 1) * pageSize + 1}</span> to{" "}
                         <span className="font-semibold text-[#0F172A]">{Math.min(currentPage * pageSize, data.length)}</span> of{" "}
-                        <span className="font-semibold text-[#0F172A]">{data.length}</span> entries
+                        <span className="font-semibold text-[#0F172A]">{data.length}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Show:</span>
+                        <span className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold tracking-wider">Show:</span>
                         <select
-                            className="bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0F172A] py-1 px-2 focus:outline-none focus:ring-2 focus:ring-slate-100 cursor-pointer"
+                            className="bg-white border border-slate-200 rounded-lg text-[10px] sm:text-xs font-bold text-[#0F172A] py-1 px-2 focus:outline-none focus:ring-2 focus:ring-slate-100 cursor-pointer"
                             value={pageSize}
                             onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
                         >

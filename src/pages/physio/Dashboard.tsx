@@ -56,7 +56,7 @@ export const PhysioDashboard = () => {
       </header>
 
       {/* Quick Start Cards */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {[
           { label: "New Profile", icon: UserPlus, to: "/app/clients", color: "bg-blue-600" },
           { label: "Posture", icon: Camera, to: "/app/cases/new?type=posture", color: "bg-primary" },
@@ -66,12 +66,12 @@ export const PhysioDashboard = () => {
           <button
             key={action.label}
             onClick={() => navigate(action.to)}
-            className="flex flex-col items-center justify-center p-6 bg-surface/50 border border-white/5 rounded-[2rem] hover:bg-surface hover:border-primary/20 transition-all group gap-3 shadow-sm"
+            className="flex flex-col items-center justify-center p-4 md:p-6 bg-surface/50 border border-white/5 rounded-2xl md:rounded-[2rem] hover:bg-surface hover:border-primary/20 transition-all group gap-2 md:gap-3 shadow-sm"
           >
-            <div className={`h-12 w-12 rounded-2xl ${action.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
-              <action.icon className="h-6 w-6 text-white" />
+            <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl ${action.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+              <action.icon className="h-5 w-5 md:h-6 md:h-6 text-white" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-widest">{action.label}</span>
+            <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-center">{action.label}</span>
           </button>
         ))}
       </section>
@@ -90,7 +90,7 @@ export const PhysioDashboard = () => {
               <div
                 key={a.id}
                 onClick={() => navigate(`/app/cases/${a.id}`)}
-                className="group flex items-center justify-between p-4 bg-surface/30 border border-white/5 rounded-2xl hover:bg-surface/50 hover:border-primary/30 transition-all cursor-pointer"
+                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface/30 border border-white/5 rounded-2xl hover:bg-surface/50 hover:border-primary/30 transition-all cursor-pointer gap-4"
               >
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
@@ -101,7 +101,7 @@ export const PhysioDashboard = () => {
                     <p className="text-[10px] text-text-muted">Updated {new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).toLocaleDateString()}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${a.status === 'final' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
                     }`}>
                     {a.status}
@@ -133,7 +133,7 @@ export const PhysioDashboard = () => {
                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
                       {p.fullName.charAt(0)}
                     </div>
-                    <p className="text-sm font-bold">{p.fullName}</p>
+                    <p className="text-sm font-bold truncate max-w-[150px] md:max-w-none">{p.fullName}</p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-text-muted" />
                 </div>
@@ -144,7 +144,7 @@ export const PhysioDashboard = () => {
             </div>
           </section>
 
-          <section className="p-8 bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/20 rounded-[2.5rem] space-y-6 shadow-xl shadow-primary/5">
+          <section className="p-6 md:p-8 bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/20 rounded-3xl md:rounded-[2.5rem] space-y-6 shadow-xl shadow-primary/5">
             <h3 className="text-xs font-bold uppercase tracking-widest text-primary opacity-80">Clinic Snapshot</h3>
             <div className="space-y-6">
               {stats.map((s) => (

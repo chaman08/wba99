@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
-import { User, FileText, CheckCircle, Clock } from "lucide-react";
+import { User, FileText, CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 export const AdminCases = () => {
   const assessments = useAppStore((state) => state.assessments);
@@ -12,7 +12,7 @@ export const AdminCases = () => {
   const [clinicianFilter, setClinicianFilter] = useState("All");
   const [query, setQuery] = useState("");
 
-  const statuses = ["All", "draft", "final"];
+  const statuses = ["All", "draft", "submitted", "final"];
   const clinicians = users.filter((u) => u.role === "clinician" || u.role === "assistant");
 
   const filtered = useMemo(() => {
@@ -30,17 +30,19 @@ export const AdminCases = () => {
 
   const statusIcons: Record<string, any> = {
     draft: <Clock className="w-3.5 h-3.5" />,
+    submitted: <AlertCircle className="w-3.5 h-3.5" />,
     final: <CheckCircle className="w-3.5 h-3.5" />,
   };
 
   const statusStyles: Record<string, string> = {
     draft: "bg-accent/10 text-accent",
+    submitted: "bg-primary/10 text-primary",
     final: "bg-success/10 text-success",
   };
 
   return (
     <section className="space-y-6 animate-fade-in pb-12">
-      <div className="rounded-3xl bg-surface/70 p-6 shadow-soft-light border border-white/5">
+      <div className="rounded-2xl md:rounded-3xl bg-surface/70 p-4 md:p-6 shadow-soft-light border border-white/5">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-text">Assessment Administration</h2>
@@ -78,7 +80,7 @@ export const AdminCases = () => {
             const profile = profiles.find(p => p.id === item.profileId);
             const date = new Date(typeof item.createdAt === 'string' ? item.createdAt : item.createdAt.seconds * 1000);
             return (
-              <div key={item.id} className="group relative flex flex-col gap-6 rounded-3xl border border-white/5 bg-surface/70 p-6 transition hover:border-primary/30 hover:shadow-soft-light md:flex-row md:items-center">
+              <div key={item.id} className="group relative flex flex-col gap-4 md:gap-6 rounded-2xl md:rounded-3xl border border-white/5 bg-surface/70 p-4 md:p-6 transition hover:border-primary/30 hover:shadow-soft-light md:flex-row md:items-center">
                 <div className="flex-1 space-y-3 min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted font-bold">{item.id.split('-')[1]}</span>
@@ -120,7 +122,7 @@ export const AdminCases = () => {
 
                   <Link
                     to={`/admin/cases/${item.id}`}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-primary/10 px-6 py-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-white"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary/10 px-6 py-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-white"
                   >
                     <FileText className="w-4 h-4" />
                     Manage Assessment
