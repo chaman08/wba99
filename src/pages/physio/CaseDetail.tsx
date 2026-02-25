@@ -1,12 +1,18 @@
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
 
 export const CaseDetail = () => {
   const { caseId } = useParams<{ caseId: string }>();
-  const item = useAppStore((state) => state.assessments.find((a) => a.id === caseId));
-  const profile = useAppStore((state) => state.profiles.find((p) => p.id === item?.profileId));
-  const creator = useAppStore((state) =>
-    item?.createdBy ? state.users.find((user) => user.uid === item.createdBy) : undefined,
+  const allAssessments = useAppStore((state) => state.assessments);
+  const allProfiles = useAppStore((state) => state.profiles);
+  const allUsers = useAppStore((state) => state.users);
+
+  const item = useMemo(() => allAssessments.find((a) => a.id === caseId), [allAssessments, caseId]);
+  const profile = useMemo(() => allProfiles.find((p) => p.id === item?.profileId), [allProfiles, item?.profileId]);
+  const creator = useMemo(() =>
+    item?.createdBy ? allUsers.find((user) => user.uid === item.createdBy) : undefined,
+    [allUsers, item?.createdBy]
   );
   const navigate = useNavigate();
 
@@ -48,7 +54,7 @@ export const CaseDetail = () => {
             <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Captured Media
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            {item.media.photos.map((photo, i) => (
+            {item.media.photos.map((photo: any, i: number) => (
               <article key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-black/20 border border-white/5">
                 <img src={photo.url} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-4 flex items-end">
@@ -56,7 +62,7 @@ export const CaseDetail = () => {
                 </div>
               </article>
             ))}
-            {item.media.videos.map((video, i) => (
+            {item.media.videos.map((video: any, i: number) => (
               <article key={i} className="group relative aspect-[3/4] overflow-hidden rounded-3xl bg-black/20 border border-white/5">
                 <video src={video.url} className="h-full w-full object-cover" />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4">

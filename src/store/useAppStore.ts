@@ -402,19 +402,35 @@ export const useAppStore = create<AppState>((set, get) => {
       userUnsub = onSnapshot(doc(firebaseDB, "users", firebaseUser.uid), async (snapshot) => {
         if (snapshot.exists()) {
           const user = mapUser(snapshot as any);
-          const currentUser = get().authUser;
+          const currentState = get();
+          const currentUser = currentState.authUser;
 
           const roleChanged = currentUser && currentUser.role !== user.role;
           const orgChanged = currentUser && currentUser.orgId !== user.orgId;
+          const isInitialLoad = !currentUser;
 
           let finalOrgId = user.orgId || CENTRAL_ORG_ID;
 
-          // If role changed, force refresh token to sync custom claims
-          if (roleChanged || !currentUser) {
-            console.log(`[Auth] Role: ${user.role}, Org: ${user.orgId}. Syncing session...`);
-            await firebaseUser.getIdToken(true);
-            const tokenResult = await firebaseUser.getIdTokenResult(true);
-            finalOrgId = (tokenResult.claims.orgId as string) || user.orgId || CENTRAL_ORG_ID;
+          // If role changed or it's initial load, verify custom claims
+          if (roleChanged || isInitialLoad) {
+            console.log(`[Auth] Checking session for Role: ${user.role}, Org: ${user.orgId}...`);
+
+            // Get current token result WITHOUT force refresh first
+            const tokenResult = await firebaseUser.getIdTokenResult();
+            const currentClaimOrgId = tokenResult.claims.orgId as string;
+            const currentClaimRole = tokenResult.claims.role as string;
+
+            // Only force refresh if there's a mismatch between user doc and current claims
+            const needsRefresh = (user.orgId && currentClaimOrgId !== user.orgId) ||
+              (user.role && currentClaimRole !== user.role);
+
+            if (needsRefresh) {
+              console.log("[Auth] Token claims mismatch. Refreshing...");
+              const newTokenResult = await firebaseUser.getIdTokenResult(true);
+              finalOrgId = (newTokenResult.claims.orgId as string) || user.orgId || CENTRAL_ORG_ID;
+            } else {
+              finalOrgId = currentClaimOrgId || user.orgId || CENTRAL_ORG_ID;
+            }
           }
 
           set({
@@ -425,7 +441,9 @@ export const useAppStore = create<AppState>((set, get) => {
           });
 
           // Setup/Re-setup data listeners if identity context changed or first time
+          // Added a check on unsubscribers.length to ensure we don't skip setup on initial load
           if (roleChanged || orgChanged || unsubscribers.length === 0) {
+            console.log(`[Sync] ${isInitialLoad ? 'Initial' : 'Re-'}setup listeners for Org: ${finalOrgId}`);
             setupListeners(user, finalOrgId);
           }
         } else {

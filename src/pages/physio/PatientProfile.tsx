@@ -21,8 +21,11 @@ type AssessmentTab = "overview" | "posture" | "movement" | "msk" | "reports";
 
 export const PatientProfile = () => {
   const { patientId } = useParams<{ patientId: string }>();
-  const profile = useAppStore((state) => state.profiles.find((item) => item.id === patientId));
-  const assessments = useAppStore((state) => state.assessments.filter((item) => item.profileId === patientId));
+  const allProfiles = useAppStore((state) => state.profiles);
+  const allAssessments = useAppStore((state) => state.assessments);
+
+  const profile = useMemo(() => allProfiles.find((item) => item.id === patientId), [allProfiles, patientId]);
+  const assessments = useMemo(() => allAssessments.filter((item) => item.profileId === patientId), [allAssessments, patientId]);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AssessmentTab>("overview");
 

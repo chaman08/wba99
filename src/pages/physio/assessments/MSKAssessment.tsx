@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../../store/useAppStore";
 import { AssessmentLayout } from "../../../components/layout/AssessmentLayout";
@@ -19,7 +19,8 @@ const STEPS = [
 export const MSKAssessment = () => {
     const { clientId } = useParams<{ clientId: string }>();
     const navigate = useNavigate();
-    const patient = useAppStore((state: any) => state.patients.find((p: any) => p.id === clientId));
+    const profiles = useAppStore((state: any) => state.profiles);
+    const patient = useMemo(() => profiles.find((p: any) => p.id === clientId), [profiles, clientId]);
     const addCase = useAppStore((state: any) => state.addCase);
 
     const [currentStep, setCurrentStep] = useState(1);
