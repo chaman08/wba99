@@ -227,6 +227,8 @@ export interface AppState {
   authError: string | null;
   isCreatingOrg: boolean;
   isProvisioning: boolean;
+  pendingMedia: { file: File; preview: string }[];
+  setPendingMedia: (media: { file: File; preview: string }[]) => void;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   createOrganisation: (orgName: string, name: string, email: string, password: string) => Promise<void>;
@@ -491,6 +493,8 @@ export const useAppStore = create<AppState>((set, get) => {
     isCreatingOrg: false,
     isProvisioning: false,
     authError: null,
+    pendingMedia: [],
+    setPendingMedia: (media) => set({ pendingMedia: media }),
     login: async (email: string, password: string) => {
       try {
         set({ isLoadingAuth: true, authError: null });

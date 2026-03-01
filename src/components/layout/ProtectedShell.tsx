@@ -80,13 +80,13 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
       >
         <div className="p-6 flex items-center justify-between">
           {!isSidebarCollapsed && (
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary" />
-              <span className="font-bold text-xl tracking-tight">WBA99</span>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="WBA99" className="h-8 w-8 drop-shadow-[0_0_10px_rgba(0,180,216,0.2)]" />
+              <span className="font-black text-2xl tracking-tighter text-white uppercase italic">WBA99</span>
             </div>
           )}
           {isSidebarCollapsed && (
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary mx-auto" />
+            <img src="/logo.png" alt="WBA99" className="h-8 w-8 mx-auto drop-shadow-[0_0_10px_rgba(0,180,216,0.2)]" />
           )}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -236,9 +236,9 @@ export const ProtectedShell = ({ role, label, children }: ProtectedShellProps) =
           />
           <aside className="fixed inset-y-0 left-0 w-72 bg-surface z-50 lg:hidden flex flex-col animate-in slide-in-from-left duration-300">
             <div className="p-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-secondary" />
-                <span className="font-bold text-xl tracking-tight">WBA99</span>
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="WBA99" className="h-8 w-8" />
+                <span className="font-black text-2xl tracking-tighter text-white uppercase italic">WBA99</span>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}

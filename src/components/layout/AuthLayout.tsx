@@ -1,4 +1,4 @@
-import { Activity, Bone, Footprints, User } from "lucide-react";
+import { Accessibility, Footprints, Activity, Bone } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
@@ -7,7 +7,7 @@ type ActionType = "login" | "signup";
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const heroFeatures: { label: string; Icon: IconComponent }[] = [
-  { label: "Posture", Icon: User },
+  { label: "Posture", Icon: Accessibility },
   { label: "Walking", Icon: Footprints },
   { label: "Running", Icon: Activity },
   { label: "M.S.K. Analysis", Icon: Bone },
@@ -77,14 +77,17 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
 
         <div className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-8 p-6">
           <div className="space-y-4 text-center">
-            <div className="inline-block px-4 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold uppercase tracking-[0.4em] text-primary mb-4">
-              WBA99 Pro
+            <div className="flex flex-col items-center gap-4 mb-8">
+              <img src="/logo.png" alt="WBA99 Logo" className="h-24 w-24 drop-shadow-[0_0_20px_rgba(0,180,216,0.3)]" />
+              <div className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/10 text-[12px] font-black uppercase tracking-[0.5em] text-primary">
+                WBA99 PRO
+              </div>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-white">{heroText.title}</h1>
-            <p className="text-slate-400 leading-relaxed max-w-sm mx-auto">{heroText.description}</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white uppercase">{heroText.title}</h1>
+            <p className="text-slate-400 font-medium leading-relaxed max-w-sm mx-auto">{heroText.description}</p>
           </div>
 
-          <div className="w-full max-w-[340px] rounded-[48px] p-[1px] bg-gradient-to-b from-white/20 to-transparent shadow-2xl overflow-hidden relative group">
+          <div className="w-full max-w-[360px] rounded-[48px] p-[1px] bg-gradient-to-b from-primary/30 to-transparent shadow-2xl overflow-hidden relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-slate-950/90 rounded-[47px] p-6 backdrop-blur-3xl">
               <div className="flex flex-col gap-6 text-center">
@@ -99,16 +102,16 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
                   <button
                     type="button"
                     onClick={() => handleHeroAction("signup")}
-                    className="flex-1 rounded-2xl bg-white text-slate-950 h-12 text-sm font-bold transition hover:bg-slate-200 active:scale-95 shadow-lg shadow-white/10"
+                    className="flex-1 rounded-2xl bg-primary text-white h-12 text-sm font-black uppercase tracking-widest transition hover:bg-primary/80 active:scale-95 shadow-lg shadow-primary/25"
                   >
-                    Get Started
+                    Sign Up
                   </button>
                   <button
                     type="button"
                     onClick={() => handleHeroAction("login")}
-                    className="flex-1 rounded-2xl border border-white/10 text-white h-12 text-sm font-bold transition hover:bg-white/5 active:scale-95"
+                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 text-white h-12 text-sm font-black uppercase tracking-widest transition hover:bg-white/10 active:scale-95"
                   >
-                    Sign In
+                    Login
                   </button>
                 </div>
 
@@ -150,14 +153,18 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
 
             <div className="relative z-10 w-full max-w-md space-y-12">
-              <div className="space-y-4">
-                <div className="inline-block px-4 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold uppercase tracking-[0.4em] text-primary">
-                  WBA99 Motion Pro
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <img src="/logo.png" alt="WBA99 Logo" className="h-20 w-20 drop-shadow-[0_0_15px_rgba(0,180,216,0.2)]" />
+                  <div className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/10 text-[12px] font-black uppercase tracking-[0.5em] text-primary">
+                    MOTION PRO
+                  </div>
                 </div>
-                <h1 className="text-5xl font-bold tracking-tight text-white leading-tight">
-                  {heroText.title}
+                <h1 className="text-6xl font-black tracking-tighter text-white leading-none uppercase">
+                  WBA99
+                  <span className="block text-3xl font-bold tracking-normal text-slate-400 mt-2 lowercase">{heroText.title}</span>
                 </h1>
-                <p className="text-lg text-slate-400 leading-relaxed">
+                <p className="text-xl text-slate-400 font-medium leading-relaxed">
                   {heroText.description}
                 </p>
               </div>
@@ -217,14 +224,12 @@ export const AuthLayout = ({ children, title, subtitle, action, landingEnabled }
             {/* Bottom Accent - Changed absolute to relative/static-ish on mobile to prevent overlap */}
             <div className="mt-12 lg:absolute lg:bottom-8 text-center pb-8 lg:pb-0">
               <div className="flex flex-col items-center gap-2">
-                <p className="text-[12px] uppercase tracking-[0.4em] text-white/40 font-black">
+                <p className="text-[12px] uppercase tracking-[0.5em] text-white/40 font-black">
                   Powered by
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-secondary flex items-center justify-center">
-                    <Activity className="text-white w-4 h-4" />
-                  </div>
-                  <span className="text-xl font-black tracking-tighter text-white">WBA99</span>
+                <div className="flex items-center gap-3">
+                  <img src="/logo.png" alt="WBA99" className="h-10 w-10" />
+                  <span className="text-2xl font-black tracking-tighter text-white">WBA99</span>
                 </div>
               </div>
             </div>

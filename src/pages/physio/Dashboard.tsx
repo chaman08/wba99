@@ -11,7 +11,10 @@ import {
   Camera,
   Stethoscope,
   UserPlus,
-  FileText
+  FileText,
+  Bone,
+  Footprints,
+  Accessibility
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -21,14 +24,14 @@ export const PhysioDashboard = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const stats = useMemo(() => [
-    { label: "Total Profiles", value: profiles.length, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Total Profiles", value: profiles.length, icon: Users, color: "text-[#00B4D8]", bg: "bg-[#00B4D8]/10", border: "border-[#00B4D8]/20" },
     {
-      label: "Analyses (Weekly)", value: assessments.filter(a => {
+      label: "Analyses", value: assessments.filter(a => {
         const date = new Date(typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.seconds * 1000);
         return date.getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
-      }).length, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10"
+      }).length, icon: TrendingUp, color: "text-[#10B981]", bg: "bg-[#10B981]/10", border: "border-[#10B981]/20"
     },
-    { label: "Reports Ready", value: reports.length, icon: FileText, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Reports Ready", value: reports.length, icon: FileText, color: "text-[#F59E0B]", bg: "bg-[#F59E0B]/10", border: "border-[#F59E0B]/20" },
   ], [profiles, assessments, reports]);
 
   const recentProfiles = useMemo(() =>
@@ -51,22 +54,26 @@ export const PhysioDashboard = () => {
     <div className="space-y-8 animate-in fade-in duration-500 pb-24 lg:pb-8">
       {/* Header */}
       <header className="flex flex-col gap-1">
-        <h2 className="text-3xl font-bold tracking-tight">Clinic Workspace</h2>
-        <p className="text-text-muted">Welcome back, {authUser?.name}. What's next?</p>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="h-1.5 w-8 bg-primary rounded-full" />
+          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">WBA99 INTELLIGENCE</span>
+        </div>
+        <h2 className="text-4xl font-black tracking-tighter uppercase italic">Clinic Workspace</h2>
+        <p className="text-text-muted font-medium">Welcome back, {authUser?.name}. Let's analyze some motion.</p>
       </header>
 
       {/* Quick Start Cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: "New Profile", icon: UserPlus, to: "/app/clients", color: "bg-blue-600" },
-          { label: "Posture", icon: Camera, to: "/app/cases/new?type=posture", color: "bg-primary" },
-          { label: "Movement", icon: Activity, to: "/app/cases/new?type=movement", color: "bg-secondary" },
-          { label: "MSK Form", icon: Stethoscope, to: "/app/cases/new?type=msk", color: "bg-purple-600" },
+          { label: "Posture", icon: Accessibility, to: "/app/cases/new?type=posture", color: "bg-primary", borderColor: "border-primary/50" },
+          { label: "Walking", icon: Footprints, to: "/app/cases/new?type=movement", color: "bg-[#00B4D8]", borderColor: "border-[#00B4D8]/50" },
+          { label: "Running", icon: Activity, to: "/app/cases/new?type=running", color: "bg-[#10B981]", borderColor: "border-[#10B981]/50" },
+          { label: "MSK Analysis", icon: Bone, to: "/app/cases/new?type=msk", color: "bg-[#F59E0B]", borderColor: "border-[#F59E0B]/50" },
         ].map((action) => (
           <button
             key={action.label}
             onClick={() => navigate(action.to)}
-            className="flex flex-col items-center justify-center p-4 md:p-6 bg-surface/50 border border-white/5 rounded-2xl md:rounded-[2rem] hover:bg-surface hover:border-primary/20 transition-all group gap-2 md:gap-3 shadow-sm"
+            className={`flex flex-col items-center justify-center p-4 md:p-6 bg-surface/50 border ${action.borderColor} rounded-2xl md:rounded-[2rem] hover:bg-surface transition-all group gap-2 md:gap-3 shadow-lg shadow-black/20`}
           >
             <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl ${action.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
               <action.icon className="h-5 w-5 md:h-6 md:h-6 text-white" />
@@ -86,30 +93,39 @@ export const PhysioDashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {recentAssessments.map((a) => (
-              <div
-                key={a.id}
-                onClick={() => navigate(`/app/cases/${a.id}`)}
-                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface/30 border border-white/5 rounded-2xl hover:bg-surface/50 hover:border-primary/30 transition-all cursor-pointer gap-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                    <Activity className="h-5 w-5 text-text-muted group-hover:text-primary transition-colors" />
+            {recentAssessments.map((a) => {
+              const colorConfig = {
+                posture: { border: "border-primary/40", icon: "text-primary", bg: "bg-primary/10", label: "Posture" },
+                movement: { border: "border-[#00B4D8]/40", icon: "text-[#00B4D8]", bg: "bg-[#00B4D8]/10", label: "Walking" },
+                running: { border: "border-[#10B981]/40", icon: "text-[#10B981]", bg: "bg-[#10B981]/10", label: "Running" },
+                msk: { border: "border-[#F59E0B]/40", icon: "text-[#F59E0B]", bg: "bg-[#F59E0B]/10", label: "MSK" },
+              }[a.type.toLowerCase()] || { border: "border-white/10", icon: "text-text-muted", bg: "bg-white/5", label: a.type };
+
+              return (
+                <div
+                  key={a.id}
+                  onClick={() => navigate(`/app/cases/${a.id}`)}
+                  className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface/30 border ${colorConfig.border} rounded-2xl hover:bg-surface/50 hover:border-primary/50 transition-all cursor-pointer gap-4 shadow-sm`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-11 w-11 rounded-xl ${colorConfig.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                      <Activity className={`h-5 w-5 ${colorConfig.icon}`} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${colorConfig.icon} uppercase tracking-tight italic`}>{colorConfig.label} Analysis</p>
+                      <p className="text-[11px] text-text-muted font-medium">Updated {new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold group-hover:text-primary transition-colors uppercase italic">{a.type} Analysis</p>
-                    <p className="text-[10px] text-text-muted">Updated {new Date(typeof a.updatedAt === 'string' ? a.updatedAt : a.updatedAt.seconds * 1000).toLocaleDateString()}</p>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${a.status === 'final' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/10 text-primary border border-primary/20'
+                      }`}>
+                      {a.status}
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${a.status === 'final' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
-                    }`}>
-                    {a.status}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {recentAssessments.length === 0 && (
               <p className="text-sm text-text-muted py-12 text-center italic bg-surface/10 rounded-[2rem] border border-dashed border-white/5">No recent assessments found.</p>
             )}
@@ -148,13 +164,13 @@ export const PhysioDashboard = () => {
             <h3 className="text-xs font-bold uppercase tracking-widest text-primary opacity-80">Clinic Snapshot</h3>
             <div className="space-y-6">
               {stats.map((s) => (
-                <div key={s.label} className="flex items-center gap-4">
+                <div key={s.label} className={`flex items-center gap-4 p-4 rounded-2xl bg-surface/40 border ${s.border} shadow-sm transition-all hover:scale-[1.02]`}>
                   <div className={`h-12 w-12 rounded-2xl ${s.bg} flex items-center justify-center shadow-inner`}>
                     <s.icon className={`h-6 w-6 ${s.color}`} />
                   </div>
                   <div>
                     <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mb-0.5">{s.label}</p>
-                    <p className="text-2xl font-bold tracking-tight">{s.value}</p>
+                    <p className="text-2xl font-black tracking-tight">{s.value}</p>
                   </div>
                 </div>
               ))}

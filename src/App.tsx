@@ -24,7 +24,7 @@ import { ProgramBuilder } from "./pages/admin/program-builder/ProgramBuilder";
 import { Configuration } from "./pages/admin/configuration/Configuration";
 import { Management } from "./pages/admin/management/Management";
 import { AdminShell } from "./components/layout/AdminShell";
-import { AssessTab } from "./pages/physio/tabs/AssessTab";
+import { CapturePage } from "./pages/physio/CapturePage";
 import { ReportsPage } from "./pages/physio/tabs/ReportsPage";
 import { SettingsPage } from "./pages/physio/tabs/SettingsPage";
 import { Toaster } from "react-hot-toast";
@@ -46,7 +46,7 @@ export const App = () => {
           <Route path="/app/dashboard" element={<PhysioDashboard />} />
           <Route path="/app/clients" element={<PatientsPage />} />
           <Route path="/app/clients/:patientId" element={<PatientProfile />} />
-          <Route path="/app/assess" element={<AssessTab />} />
+          <Route path="/app/capture" element={<CapturePage />} />
           <Route path="/app/reports" element={<ReportsPage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/app/cases" element={<PhysioActivity />} />
