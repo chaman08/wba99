@@ -27,6 +27,7 @@ import { AdminShell } from "./components/layout/AdminShell";
 import { CapturePage } from "./pages/physio/CapturePage";
 import { ReportsPage } from "./pages/physio/tabs/ReportsPage";
 import { SettingsPage } from "./pages/physio/tabs/SettingsPage";
+import { AssessTab } from "./pages/physio/tabs/AssessTab";
 import { Toaster } from "react-hot-toast";
 
 export const App = () => {
@@ -47,6 +48,7 @@ export const App = () => {
           <Route path="/app/clients" element={<PatientsPage />} />
           <Route path="/app/clients/:patientId" element={<PatientProfile />} />
           <Route path="/app/capture" element={<CapturePage />} />
+          <Route path="/app/assess" element={<AssessTab />} />
           <Route path="/app/reports" element={<ReportsPage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/app/cases" element={<PhysioActivity />} />
